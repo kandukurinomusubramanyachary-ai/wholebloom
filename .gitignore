@@ -1,0 +1,49 @@
+.env
+.env.local
+.env.development
+.env.production
+.env.*.local
+.env.*
+!.env.example
+
+# Installed dependencies and generated app bundles.
+node_modules/
+.expo/
+dist/
+web-build/
+coverage/
+
+# Android build outputs. Keep native source files trackable if prebuild is used.
+*.apk
+*.aab
+*.ipa
+*.mobileprovision
+android/.gradle/
+android/build/
+android/app/build/
+
+# Local Expo development state.
+.expo-web*.log
+eas-build*.log
+eas-build*.log.gz
+eas-build-details.json
+eas-build-readable.log
+android-build-inspect/
+ios-build-inspect/
+apk-decoded/
+tmp/
+
+# Firebase Admin credentials must stay outside the app repository.
+*-service-account.json
+*service-account*.json
+service-account*.json
+firebase-admin*.json
+*firebase-adminsdk*.json
+serviceAccountKey.json
+
+# Local Firebase emulator output.
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+node_modules

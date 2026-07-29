@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "Bloom",
+    "slug": "bloom",
+    "version": "1.0.2",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFDFE"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bloom.app",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Bloom uses Face ID to protect your health data."
+      }
+    },
+    "android": {
+      "softwareKeyboardLayoutMode": "resize",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFFDFE"
+      },
+      "package": "com.bloomhealth.app",
+      "versionCode": 3,
+      "permissions": [
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT",
+        "SCHEDULE_EXACT_ALARM",
+        "RECEIVE_BOOT_COMPLETED",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-local-authentication",
+      "expo-notifications"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "94819776-182f-45d0-bfb1-6c8cc06ea821"
+      }
+    },
+    "owner": "subramanya10s-team"
+  }
+}

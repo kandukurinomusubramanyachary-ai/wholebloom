@@ -1,0 +1,43 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /bloom_waitlist/{document} {
+      allow create: if request.resource.data.keys().hasOnly([
+        'firstName',
+        'email',
+        'optionalContact',
+        'answers',
+        'consent',
+        'interestScore',
+        'interestLevel',
+        'source',
+        'createdAt'
+      ])
+      && request.resource.data.firstName is string
+      && request.resource.data.email is string
+      && request.resource.data.email.matches('^.+@.+\\..+$')
+      && request.resource.data.optionalContact is string
+      && request.resource.data.answers is map
+      && request.resource.data.consent == true
+      && request.resource.data.interestScore is int
+      && request.resource.data.interestLevel in ['low', 'medium', 'high']
+      && request.resource.data.source == 'landing_page'
+      && request.resource.data.createdAt == request.time;
+
+      allow read, update, delete: if false;
+    }
+
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    match /users/{uid} {
+      allow read, write: if isOwner(uid);
+
+      match /{document=**} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+  }
+}
