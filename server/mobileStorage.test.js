@@ -78,3 +78,43 @@ test('storage removes malformed JSON and tolerates structurally invalid collecti
   assert.equal(backend.values.has(corruptKey), false);
   assert.deepEqual(await storage.saveMeal({ id: 'meal-one' }), [{ id: 'meal-one' }]);
 });
+
+test('meal logs and reflections remain isolated when the signed-in account changes', async () => {
+  const backend = createMemoryStorage();
+  const { storage } = loadStorageModule(backend);
+
+  storage.setUserScope('user-a');
+  await storage.saveMeal({
+    id: 'meal-a',
+    name: 'A meal',
+    reflection: { outcome: 'steady_energy' },
+  });
+
+  storage.setUserScope('user-b');
+  assert.equal(await storage.getMeals(), null);
+  await storage.saveMeal({ id: 'meal-b', name: 'B meal' });
+
+  storage.setUserScope('user-a');
+  assert.deepEqual((await storage.getMeals()).map((meal) => meal.id), ['meal-a']);
+  assert.equal((await storage.getMeals())[0].reflection.outcome, 'steady_energy');
+  await storage.deleteMeal('meal-a');
+  assert.deepEqual(await storage.getMeals(), []);
+
+  storage.setUserScope('user-b');
+  assert.deepEqual((await storage.getMeals()).map((meal) => meal.id), ['meal-b']);
+});
+
+test('Meg retry state remains UID-scoped in device storage', async () => {
+  const backend = createMemoryStorage();
+  const { storage } = loadStorageModule(backend);
+
+  storage.setUserScope('user-a');
+  await storage.setMegConversations([{ id: 'chat-a', messages: [{ deliveryStatus: 'failed' }] }]);
+  storage.setUserScope('user-b');
+  assert.equal(await storage.getMegConversations(), null);
+  await storage.setMegConversations([{ id: 'chat-b', messages: [] }]);
+
+  storage.setUserScope('user-a');
+  assert.equal((await storage.getMegConversations())[0].id, 'chat-a');
+  assert.equal((await storage.getMegConversations())[0].messages[0].deliveryStatus, 'failed');
+});

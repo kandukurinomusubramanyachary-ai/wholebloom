@@ -32,11 +32,261 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == uid;
     }
 
+    function isDate(value) {
+      return value is string
+        && value.size() == 10
+        && value.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
+    function optionalString(data, field, limit) {
+      return !(field in data)
+        || data[field] == null
+        || (data[field] is string && data[field].size() <= limit);
+    }
+
+    function optionalBoolean(data, field) {
+      return !(field in data) || data[field] == null || data[field] is bool;
+    }
+
+    function optionalNumber(data, field, minimum, maximum) {
+      return !(field in data)
+        || data[field] == null
+        || ((data[field] is int || data[field] is float)
+          && data[field] >= minimum
+          && data[field] <= maximum);
+    }
+
+    function optionalList(data, field, limit) {
+      return !(field in data)
+        || (data[field] is list && data[field].size() <= limit);
+    }
+
+    function optionalMap(data, field, limit) {
+      return !(field in data)
+        || data[field] == null
+        || (data[field] is map && data[field].size() <= limit);
+    }
+
+    function optionalTimestamp(data, field) {
+      return !(field in data) || data[field] is timestamp;
+    }
+
+    function validCycleLog(data) {
+      return data.keys().hasOnly([
+        'id', 'date', 'startDate', 'endDate', 'flow', 'source', 'createdAt', 'updatedAt'
+      ])
+      && data.keys().hasAll(['date', 'startDate', 'updatedAt'])
+      && isDate(data.date)
+      && isDate(data.startDate)
+      && data.date == data.startDate
+      && optionalString(data, 'endDate', 10)
+      && (!('endDate' in data) || data.endDate == null || isDate(data.endDate))
+      && optionalString(data, 'id', 160)
+      && optionalString(data, 'flow', 16)
+      && (!('flow' in data) || data.flow == null
+        || data.flow in ['none', 'spotting', 'light', 'medium', 'heavy'])
+      && optionalString(data, 'source', 16)
+      && (!('source' in data) || data.source == null
+        || data.source in ['manual', 'checkin'])
+      && optionalTimestamp(data, 'createdAt')
+      && data.updatedAt is timestamp;
+    }
+
+    function validCheckIn(data) {
+      return data.keys().hasOnly([
+        'id', 'date', 'flow', 'symptoms', 'symptomSeverity', 'mood', 'energy',
+        'sleep', 'sleepDuration', 'sleepQuality', 'pain', 'cravings', 'water',
+        'stress', 'movement', 'movementNote', 'medicationTaken', 'medicationName',
+        'medication', 'notes', 'cycleDay', 'createdAt', 'updatedAt'
+      ])
+      && data.keys().hasAll(['date', 'updatedAt'])
+      && isDate(data.date)
+      && optionalString(data, 'id', 160)
+      && optionalString(data, 'flow', 16)
+      && (!('flow' in data) || data.flow == null
+        || data.flow in ['none', 'spotting', 'light', 'medium', 'heavy'])
+      && optionalList(data, 'symptoms', 40)
+      && optionalMap(data, 'symptomSeverity', 40)
+      && optionalString(data, 'mood', 60)
+      && optionalNumber(data, 'energy', 0, 10)
+      && optionalNumber(data, 'sleep', 0, 24)
+      && optionalNumber(data, 'sleepDuration', 0, 24)
+      && optionalString(data, 'sleepQuality', 40)
+      && optionalNumber(data, 'pain', 0, 10)
+      && optionalString(data, 'cravings', 80)
+      && optionalNumber(data, 'water', 0, 50)
+      && optionalNumber(data, 'stress', 0, 10)
+      && optionalString(data, 'movement', 500)
+      && optionalString(data, 'movementNote', 500)
+      && optionalBoolean(data, 'medicationTaken')
+      && optionalString(data, 'medicationName', 160)
+      && optionalMap(data, 'medication', 4)
+      && optionalString(data, 'notes', 4000)
+      && optionalNumber(data, 'cycleDay', 1, 500)
+      && optionalTimestamp(data, 'createdAt')
+      && data.updatedAt is timestamp;
+    }
+
+    function validDietProfile(data) {
+      return data.keys().hasOnly([
+        'eatingPreference', 'allergies', 'intolerances', 'dislikedFoods',
+        'religiousExclusions', 'culturalExclusions', 'cookingSetup', 'timeAvailable',
+        'budget', 'goals', 'recentIngredients', 'favouriteIngredients',
+        'favoriteIngredients', 'savedSuggestions', 'dismissedObservationIds',
+        'deletedMealIds',
+        'createdAt', 'updatedAt'
+      ])
+      && optionalString(data, 'eatingPreference', 40)
+      && optionalList(data, 'allergies', 30)
+      && optionalList(data, 'intolerances', 30)
+      && optionalList(data, 'dislikedFoods', 30)
+      && optionalList(data, 'religiousExclusions', 30)
+      && optionalList(data, 'culturalExclusions', 30)
+      && optionalString(data, 'cookingSetup', 40)
+      && optionalString(data, 'timeAvailable', 40)
+      && optionalString(data, 'budget', 40)
+      && optionalList(data, 'goals', 20)
+      && optionalList(data, 'recentIngredients', 20)
+      && optionalList(data, 'favouriteIngredients', 20)
+      && optionalList(data, 'favoriteIngredients', 20)
+      && optionalList(data, 'savedSuggestions', 20)
+      && optionalList(data, 'dismissedObservationIds', 50)
+      && optionalList(data, 'deletedMealIds', 100)
+      && optionalTimestamp(data, 'createdAt')
+      && data.updatedAt is timestamp;
+    }
+
+    function validMealLog(data) {
+      return data.keys().hasOnly([
+        'id', 'mealId', 'timestamp', 'date', 'name', 'mealType', 'ingredients',
+        'selectedSuggestionType', 'suggestionType', 'suggestionSource', 'source',
+        'hungerBefore', 'symptoms', 'notes', 'cycleContextReference',
+        'creationPlatform', 'schemaVersion', 'protein', 'fibre', 'produce',
+        'skipped', 'favourite', 'favorite', 'tags', 'observation', 'fullness',
+        'energyAfter', 'photoUri', 'afterMealReflection', 'reflection',
+        'reflectionUpdatedAt', 'createdAt', 'updatedAt'
+      ])
+      && data.keys().hasAll(['id', 'date', 'name', 'updatedAt'])
+      && data.id is string && data.id.size() > 0 && data.id.size() <= 160
+      && isDate(data.date)
+      && data.name is string && data.name.size() > 0 && data.name.size() <= 240
+      && optionalString(data, 'mealId', 160)
+      && optionalString(data, 'timestamp', 48)
+      && optionalString(data, 'mealType', 40)
+      && optionalList(data, 'ingredients', 60)
+      && optionalString(data, 'selectedSuggestionType', 60)
+      && optionalString(data, 'suggestionType', 60)
+      && optionalString(data, 'suggestionSource', 60)
+      && optionalString(data, 'source', 60)
+      && optionalNumber(data, 'hungerBefore', 0, 10)
+      && optionalList(data, 'symptoms', 40)
+      && optionalString(data, 'notes', 4000)
+      && optionalMap(data, 'cycleContextReference', 8)
+      && optionalString(data, 'creationPlatform', 20)
+      && optionalNumber(data, 'schemaVersion', 1, 20)
+      && optionalBoolean(data, 'protein')
+      && optionalBoolean(data, 'fibre')
+      && optionalBoolean(data, 'produce')
+      && optionalBoolean(data, 'skipped')
+      && optionalBoolean(data, 'favourite')
+      && optionalBoolean(data, 'favorite')
+      && optionalList(data, 'tags', 30)
+      && optionalString(data, 'observation', 1000)
+      && optionalString(data, 'fullness', 80)
+      && optionalString(data, 'energyAfter', 80)
+      && optionalString(data, 'photoUri', 1000)
+      && optionalString(data, 'afterMealReflection', 80)
+      && optionalMap(data, 'reflection', 8)
+      && optionalString(data, 'reflectionUpdatedAt', 48)
+      && optionalTimestamp(data, 'createdAt')
+      && data.updatedAt is timestamp;
+    }
+
+    function validMealReflection(data) {
+      return data.keys().hasOnly([
+        'id', 'mealId', 'mealLogId', 'outcome', 'outcomes', 'recordedAt',
+        'createdAt', 'updatedAt'
+      ])
+      && data.keys().hasAll(['id', 'mealId', 'mealLogId', 'outcome', 'updatedAt'])
+      && data.id is string && data.id.size() > 0 && data.id.size() <= 180
+      && data.mealId is string && data.mealId.size() > 0 && data.mealId.size() <= 160
+      && data.mealLogId == data.mealId
+      && data.outcome is string && data.outcome.size() > 0 && data.outcome.size() <= 80
+      && optionalList(data, 'outcomes', 10)
+      && optionalString(data, 'recordedAt', 48)
+      && optionalTimestamp(data, 'createdAt')
+      && data.updatedAt is timestamp;
+    }
+
+    function validDietObservation(data) {
+      return data.keys().hasOnly([
+        'id', 'text', 'status', 'outcome', 'ingredient', 'sampleSize',
+        'minimumSampleSize', 'matchingCount', 'sourceMealIds', 'isCausal',
+        'dismissed', 'createdAt', 'updatedAt'
+      ])
+      && data.keys().hasAll(['id', 'isCausal', 'updatedAt'])
+      && data.id is string && data.id.size() > 0 && data.id.size() <= 160
+      && optionalString(data, 'text', 1000)
+      && optionalString(data, 'status', 60)
+      && optionalString(data, 'outcome', 80)
+      && optionalString(data, 'ingredient', 120)
+      && optionalNumber(data, 'sampleSize', 0, 10000)
+      && optionalNumber(data, 'minimumSampleSize', 1, 1000)
+      && optionalNumber(data, 'matchingCount', 0, 10000)
+      && optionalList(data, 'sourceMealIds', 100)
+      && data.isCausal == false
+      && optionalBoolean(data, 'dismissed')
+      && optionalTimestamp(data, 'createdAt')
+      && data.updatedAt is timestamp;
+    }
+
     match /users/{uid} {
       allow read, write: if isOwner(uid);
 
-      match /{document=**} {
+      match /cycleLogs/{logId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validCycleLog(request.resource.data);
+      }
+
+      match /checkIns/{checkInId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validCheckIn(request.resource.data);
+      }
+
+      match /dietProfile/{profileId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid)
+          && profileId == 'main'
+          && validDietProfile(request.resource.data);
+      }
+
+      match /mealLogs/{mealId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid)
+          && request.resource.data.id == mealId
+          && validMealLog(request.resource.data);
+      }
+
+      match /mealReflections/{reflectionId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid)
+          && request.resource.data.mealId == reflectionId
+          && validMealReflection(request.resource.data);
+      }
+
+      match /dietObservations/{observationId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid)
+          && request.resource.data.id == observationId
+          && validDietObservation(request.resource.data);
+      }
+
+      match /megConversations/{conversationId} {
         allow read, write: if isOwner(uid);
+
+        match /messages/{messageId} {
+          allow read, write: if isOwner(uid);
+        }
       }
     }
   }

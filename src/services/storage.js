@@ -237,6 +237,12 @@ class StorageService {
   }
   deleteMeal(id) { return this.removeFromCollection(KEYS.MEALS, (item) => item.id === id); }
 
+  // Meg local queue (the backend remains the account source of truth)
+  getMegConversations() { return this.getItem(KEYS.MEG_CONVERSATIONS); }
+  setMegConversations(conversations) {
+    return this.setItem(KEYS.MEG_CONVERSATIONS, conversations);
+  }
+
   // Movement
   getMovements() { return this.getItem(KEYS.MOVEMENTS); }
   saveMovement(movement) {

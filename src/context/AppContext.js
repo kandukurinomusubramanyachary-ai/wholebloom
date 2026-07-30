@@ -1,6 +1,13 @@
-import React, { createContext, useContext, useEffect, useMemo, useReducer } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+} from 'react';
 import { differenceInCalendarDays, isValid, parseISO } from 'date-fns';
-import { storage } from '../services/storage';
+import { KEYS, storage } from '../services/storage';
 import { useAuth } from './AuthContext';
 import {
   deleteAllCurrentUserTrackingData,
@@ -17,6 +24,19 @@ import {
   loadCurrentUserMegConversations,
   updateCurrentUserMegFeedback,
 } from '../services/megData';
+import {
+  applyDietReflections,
+  deleteAllCurrentUserDietData,
+  deleteCurrentUserMeal as deleteCurrentUserDietMeal,
+  loadCurrentUserDietData,
+  mergeDietProfile,
+  mergeDietRecords,
+  saveCurrentUserDietObservation,
+  saveCurrentUserDietProfile,
+  saveCurrentUserMeal,
+  syncCurrentUserDietSnapshot,
+} from '../services/dietData';
+import { mergeMegConversations } from '../services/megLocalQueue';
 import { buildDailyPlan, updatePlanAction as updatePlanActionValue } from '../services/dailyPlan';
 import { predictCycle } from '../services/cyclePrediction';
 import {
@@ -61,6 +81,27 @@ function upsertValue(items, value, matcher) {
   ));
 }
 
+function reflectionFromMeal(meal) {
+  const outcome = meal?.reflection?.outcome
+    || meal?.afterMealReflection
+    || meal?.reflectionOutcome
+    || null;
+  if (!meal?.id || !outcome) return null;
+  return {
+    id: `reflection-${meal.id}`,
+    mealId: meal.id,
+    mealLogId: meal.id,
+    outcome,
+    outcomes: [outcome],
+    recordedAt: meal?.reflection?.recordedAt || meal?.reflectionUpdatedAt || meal?.updatedAt || null,
+    updatedAt: meal?.updatedAt || null,
+  };
+}
+
+function mealReflections(meals) {
+  return (Array.isArray(meals) ? meals : []).map(reflectionFromMeal).filter(Boolean);
+}
+
 const initialState = {
   isLoading: true,
   saveStatus: 'idle',
@@ -69,6 +110,8 @@ const initialState = {
   checkins: [],
   periods: [],
   meals: [],
+  dietReflections: [],
+  dietObservations: [],
   movements: [],
   medications: [],
   dailyPlans: [],
@@ -95,6 +138,8 @@ function appReducer(state, action) {
     case 'SET_CHECKINS': return { ...state, checkins: action.payload };
     case 'SET_PERIODS': return { ...state, periods: action.payload };
     case 'SET_MEALS': return { ...state, meals: action.payload };
+    case 'SET_DIET_REFLECTIONS': return { ...state, dietReflections: action.payload };
+    case 'SET_DIET_OBSERVATIONS': return { ...state, dietObservations: action.payload };
     case 'SET_MOVEMENTS': return { ...state, movements: action.payload };
     case 'SET_MEDICATIONS': return { ...state, medications: action.payload };
     case 'SET_DAILY_PLANS': return { ...state, dailyPlans: action.payload };
@@ -157,6 +202,9 @@ export function AppProvider({ children }) {
   if (!user?.uid) throw new Error('AppProvider requires a signed-in Bloom account.');
   storage.setUserScope(user.uid);
   const [state, dispatch] = useReducer(appReducer, initialState);
+  const activeUidRef = useRef(user.uid);
+  const dietMutationRevisionRef = useRef(0);
+  activeUidRef.current = user.uid;
   const publicState = useMemo(() => ({ ...state, ...derivedValues(state) }), [state]);
 
   useEffect(() => {
@@ -170,15 +218,107 @@ export function AppProvider({ children }) {
     return () => storage.clearUserScope(user.uid);
   }, [user.uid]);
 
+  async function hydrateDietData(expectedUid, localMeals, localSettings, expectedRevision) {
+    try {
+      if (dietMutationRevisionRef.current !== expectedRevision) return;
+      const remote = await loadCurrentUserDietData(expectedUid);
+      if (
+        activeUidRef.current !== expectedUid
+        || dietMutationRevisionRef.current !== expectedRevision
+      ) return;
+
+      const localDeletedMealIds = Array.isArray(localSettings?.dietProfile?.deletedMealIds)
+        ? localSettings.dietProfile.deletedMealIds
+        : [];
+      const remoteDeletedMealIds = Array.isArray(remote.profile?.deletedMealIds)
+        ? remote.profile.deletedMealIds
+        : [];
+      const deletedMealIds = [...new Set([
+        ...localDeletedMealIds,
+        ...remoteDeletedMealIds,
+      ].filter(Boolean))].slice(-100);
+      const deletedMealIdSet = new Set(deletedMealIds);
+
+      const mergedMeals = applyDietReflections(
+        mergeDietRecords(
+          localMeals.filter((meal) => !deletedMealIdSet.has(meal?.id)),
+          remote.meals.filter((meal) => !deletedMealIdSet.has(meal?.id))
+        ),
+        remote.reflections
+      );
+      const baseProfile = mergeDietProfile(localSettings?.dietProfile, remote.profile);
+      const dismissedObservationIds = [
+        ...(Array.isArray(baseProfile?.dismissedObservationIds)
+          ? baseProfile.dismissedObservationIds
+          : []),
+        ...remote.observations
+          .filter((observation) => observation?.dismissed === true)
+          .map((observation) => observation.id),
+      ].filter((id, index, values) => id && values.indexOf(id) === index);
+      const mergedProfile = baseProfile
+        ? { ...baseProfile, dismissedObservationIds, deletedMealIds }
+        : deletedMealIds.length ? { deletedMealIds } : null;
+      const mergedSettings = mergedProfile
+        ? { ...localSettings, dietProfile: mergedProfile }
+        : localSettings;
+      const userScope = encodeURIComponent(expectedUid);
+
+      if (dietMutationRevisionRef.current !== expectedRevision) return;
+      await Promise.all([
+        storage.setItem(KEYS.MEALS, mergedMeals, userScope),
+        storage.setItem(KEYS.SETTINGS, mergedSettings, userScope),
+      ]);
+      if (
+        activeUidRef.current !== expectedUid
+        || dietMutationRevisionRef.current !== expectedRevision
+      ) return;
+
+      dispatch({ type: 'SET_MEALS', payload: normalizeCollection(mergedMeals) });
+      dispatch({ type: 'SET_DIET_REFLECTIONS', payload: mealReflections(mergedMeals) });
+      dispatch({ type: 'SET_DIET_OBSERVATIONS', payload: remote.observations });
+      if (mergedProfile) {
+        dispatch({
+          type: 'SET_SETTINGS',
+          payload: {
+            ...initialState.settings,
+            ...mergedSettings,
+            reminders: { ...defaultReminders, ...(mergedSettings.reminders || {}) },
+          },
+        });
+      }
+
+      void syncCurrentUserDietSnapshot({
+        profile: mergedProfile,
+        meals: mergedMeals,
+        observations: remote.observations,
+      }, expectedUid);
+      deletedMealIds.forEach((id) => {
+        void deleteCurrentUserDietMeal(id, expectedUid).catch(() => undefined);
+      });
+    } catch {
+      // Diet remains fully available from UID-scoped device storage.
+    }
+  }
+
   async function loadInitialData() {
+    const expectedUid = user.uid;
+    let dietBootstrap = null;
+    let remoteAccountUnavailable = false;
     try {
       setStartupStage('app-state-load');
       const [
-        accountData, megConversations, meals, movements, medications,
+        accountData, megConversations, localMegConversations, meals, movements, medications,
         dailyPlans, doctorReportSettings, settings, bookmarks, privacySettings,
       ] = await Promise.all([
-        loadCurrentUserData(),
-        loadCurrentUserMegConversations(),
+        loadCurrentUserData().catch(() => {
+          remoteAccountUnavailable = true;
+          return { profile: null, checkins: [], periods: [] };
+        }),
+        loadCurrentUserMegConversations().catch(() => {
+          remoteAccountUnavailable = true;
+          return [];
+        }),
+        storage.getMegConversations(),
         storage.getMeals(),
         storage.getMovements(),
         storage.getMedications(),
@@ -206,10 +346,16 @@ export function AppProvider({ children }) {
       dispatch({ type: 'SET_CHECKINS', payload: normalizeCollection(checkins, normalizeCheckin) });
       dispatch({ type: 'SET_PERIODS', payload: normalizeCollection(periods, normalizePeriod) });
       dispatch({ type: 'SET_MEALS', payload: normalizeCollection(meals) });
+      dispatch({ type: 'SET_DIET_REFLECTIONS', payload: mealReflections(meals) });
       dispatch({ type: 'SET_MOVEMENTS', payload: normalizeCollection(movements) });
       dispatch({ type: 'SET_MEDICATIONS', payload: normalizeCollection(medications) });
       dispatch({ type: 'SET_DAILY_PLANS', payload: normalizeCollection(dailyPlans) });
-      dispatch({ type: 'SET_MEG_CONVERSATIONS', payload: megConversations });
+      const mergedMegConversations = mergeMegConversations(
+        localMegConversations,
+        megConversations
+      );
+      dispatch({ type: 'SET_MEG_CONVERSATIONS', payload: mergedMegConversations });
+      void storage.setMegConversations(mergedMegConversations).catch(() => undefined);
       dispatch({ type: 'SET_DOCTOR_REPORT_SETTINGS', payload: loadedDoctorReportSettings });
       dispatch({
         type: 'SET_SETTINGS',
@@ -231,6 +377,20 @@ export function AppProvider({ children }) {
         },
       });
       await storage.setSchemaVersion(DATA_SCHEMA_VERSION);
+      if (remoteAccountUnavailable) {
+        dispatch({
+          type: 'SET_SAVE_STATE',
+          payload: {
+            status: 'idle',
+            error: 'Some cloud records are unavailable offline. Device-saved features remain ready.',
+          },
+        });
+      }
+      dietBootstrap = {
+        meals: normalizeCollection(meals),
+        settings: loadedSettings,
+        revision: dietMutationRevisionRef.current,
+      };
     } catch (error) {
       dispatch({
         type: 'SET_SAVE_STATE',
@@ -241,6 +401,14 @@ export function AppProvider({ children }) {
       });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
+      if (dietBootstrap && activeUidRef.current === expectedUid) {
+        Promise.resolve().then(() => hydrateDietData(
+          expectedUid,
+          dietBootstrap.meals,
+          dietBootstrap.settings,
+          dietBootstrap.revision
+        ));
+      }
     }
   }
 
@@ -270,15 +438,33 @@ export function AppProvider({ children }) {
   }
 
   async function saveSettings(newSettings) {
+    if (newSettings.dietProfile) dietMutationRevisionRef.current += 1;
+    const dietProfile = newSettings.dietProfile
+      ? { ...newSettings.dietProfile, updatedAt: new Date().toISOString() }
+      : null;
     const updated = {
       ...state.settings,
       ...newSettings,
+      ...(dietProfile ? { dietProfile } : {}),
       reminders: newSettings.reminders
         ? { ...state.settings.reminders, ...newSettings.reminders }
         : state.settings.reminders,
     };
     await persist(() => storage.setSettings(updated));
     dispatch({ type: 'SET_SETTINGS', payload: updated });
+    if (dietProfile) {
+      const expectedUid = user.uid;
+      void saveCurrentUserDietProfile(dietProfile, expectedUid).catch(() => undefined);
+      (Array.isArray(dietProfile.dismissedObservationIds)
+        ? dietProfile.dismissedObservationIds
+        : []).forEach((id) => {
+        void saveCurrentUserDietObservation({
+          id,
+          dismissed: true,
+          isCausal: false,
+        }, expectedUid).catch(() => undefined);
+      });
+    }
     return updated;
   }
 
@@ -408,6 +594,7 @@ export function AppProvider({ children }) {
   }
 
   async function saveMeal(meal) {
+    dietMutationRevisionRef.current += 1;
     const value = {
       ...meal,
       id: meal.id || stableId('meal'),
@@ -416,14 +603,36 @@ export function AppProvider({ children }) {
     };
     const meals = await persist(() => storage.saveMeal(value));
     dispatch({ type: 'SET_MEALS', payload: meals });
+    dispatch({ type: 'SET_DIET_REFLECTIONS', payload: mealReflections(meals) });
+    void saveCurrentUserMeal(value, user.uid).catch(() => undefined);
     await refreshPlan(value.date, { meals });
     return value;
   }
 
   async function deleteMeal(id) {
+    dietMutationRevisionRef.current += 1;
     const existing = state.meals.find((item) => item.id === id);
-    const meals = await persist(() => storage.deleteMeal(id));
+    const previousProfile = state.settings.dietProfile || {};
+    const deletedMealIds = [...new Set([
+      ...(Array.isArray(previousProfile.deletedMealIds) ? previousProfile.deletedMealIds : []),
+      id,
+    ].filter(Boolean))].slice(-100);
+    const dietProfile = {
+      ...previousProfile,
+      deletedMealIds,
+      updatedAt: new Date().toISOString(),
+    };
+    const updatedSettings = { ...state.settings, dietProfile };
+    const meals = await persist(async () => {
+      const nextMeals = await storage.deleteMeal(id);
+      await storage.setSettings(updatedSettings);
+      return nextMeals;
+    });
     dispatch({ type: 'SET_MEALS', payload: meals });
+    dispatch({ type: 'SET_DIET_REFLECTIONS', payload: mealReflections(meals) });
+    dispatch({ type: 'SET_SETTINGS', payload: updatedSettings });
+    void deleteCurrentUserDietMeal(id, user.uid).catch(() => undefined);
+    void saveCurrentUserDietProfile(dietProfile, user.uid).catch(() => undefined);
     if (existing) await refreshPlan(existing.date, { meals });
     return meals;
   }
@@ -477,6 +686,7 @@ export function AppProvider({ children }) {
   async function saveMegConversation(conversation) {
     const current = state.megConversations.filter((item) => item.id !== conversation.id);
     const next = [...current, conversation];
+    await storage.setMegConversations(next);
     dispatch({ type: 'SET_MEG_CONVERSATIONS', payload: next });
     return conversation;
   }
@@ -484,12 +694,14 @@ export function AppProvider({ children }) {
   async function deleteMegConversation(id) {
     await persist(() => deleteCurrentUserMegConversation(id));
     const conversations = state.megConversations.filter((item) => item.id !== id);
+    await storage.setMegConversations(conversations);
     dispatch({ type: 'SET_MEG_CONVERSATIONS', payload: conversations });
     return conversations;
   }
 
   async function clearMegHistory() {
     await persist(() => deleteAllCurrentUserMegData());
+    await storage.setMegConversations([]);
     dispatch({ type: 'SET_MEG_CONVERSATIONS', payload: [] });
   }
 
@@ -505,6 +717,7 @@ export function AppProvider({ children }) {
             )),
           }
     ));
+    await storage.setMegConversations(conversations);
     dispatch({ type: 'SET_MEG_CONVERSATIONS', payload: conversations });
   }
 
@@ -536,6 +749,7 @@ export function AppProvider({ children }) {
     await persist(() => Promise.all([
       deleteAllCurrentUserTrackingData(),
       deleteAllCurrentUserMegData(),
+      deleteAllCurrentUserDietData(user.uid),
       storage.deleteAllData(),
     ]));
     dispatch({ type: 'RESET_FOR_USER' });
