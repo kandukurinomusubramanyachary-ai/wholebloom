@@ -605,7 +605,11 @@ export function AppProvider({ children }) {
     dispatch({ type: 'SET_MEALS', payload: meals });
     dispatch({ type: 'SET_DIET_REFLECTIONS', payload: mealReflections(meals) });
     void saveCurrentUserMeal(value, user.uid).catch(() => undefined);
-    await refreshPlan(value.date, { meals });
+    try {
+      await refreshPlan(value.date, { meals });
+    } catch {
+      // The core meal/reflection save already succeeded. A derived plan can rebuild later.
+    }
     return value;
   }
 
@@ -633,7 +637,13 @@ export function AppProvider({ children }) {
     dispatch({ type: 'SET_SETTINGS', payload: updatedSettings });
     void deleteCurrentUserDietMeal(id, user.uid).catch(() => undefined);
     void saveCurrentUserDietProfile(dietProfile, user.uid).catch(() => undefined);
-    if (existing) await refreshPlan(existing.date, { meals });
+    if (existing) {
+      try {
+        await refreshPlan(existing.date, { meals });
+      } catch {
+        // Do not report a completed deletion as failed because a derived plan could not refresh.
+      }
+    }
     return meals;
   }
 

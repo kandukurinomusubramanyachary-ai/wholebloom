@@ -75,3 +75,11 @@ test('Diet UI is keyboard-safe, locally generated and free of horizontal scrolli
   assert.doesNotMatch(diet, /horizontal=\{?true\}?/);
   assert.doesNotMatch(diet, /position:\s*'absolute'/);
 });
+
+test('meal mutations cannot be reported as failed only because a derived plan refresh failed', () => {
+  const context = read('src/context/AppContext.js');
+
+  assert.match(context, /core meal\/reflection save already succeeded/);
+  assert.match(context, /Do not report a completed deletion as failed/);
+  assert.match(context, /try \{\s*await refreshPlan\(value\.date, \{ meals \}\);\s*\} catch/s);
+});
