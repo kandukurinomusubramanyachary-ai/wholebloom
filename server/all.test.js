@@ -1,7 +1,11 @@
 require('./megBackend.test');
 require('./megUrlPolicy.test');
+require('./megLocalQueue.test');
 require('./betaAccess.test');
 require('./betaLaunchEmail.test');
 require('./mobileStorage.test');
 require('./startupHardening.test');
+require('./dietFeature.test');
+require('./dietData.test');
 require('./periodTracking.test');
+require('./uiHardening.test');

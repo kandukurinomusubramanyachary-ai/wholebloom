@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { differenceInCalendarDays, format, parseISO, subDays } from 'date-fns';
 import { useApp } from '../context/AppContext';
 import { localDateKey } from '../utils/dateKey';
+import { preferredDisplayName } from '../utils/displayName';
 import { buildDailyPlan } from '../services/dailyPlan';
 import { COLORS, LAYOUT, MOODS, SYMPTOMS } from '../utils/constants';
 import BrandMark from '../components/BrandMark';
@@ -258,7 +259,7 @@ export default function TodayScreen({ navigation }) {
   const todayMovements = state.movements.filter((item) => item.date === today);
   const latestMeal = newest(todayMeals, 'updatedAt');
   const latestMovement = newest(todayMovements, 'updatedAt');
-  const profileName = state.profile?.name?.trim();
+  const profileName = preferredDisplayName(state.profile);
   const pcosMode = (state.settings?.trackingMode || state.profile?.trackingMode) === 'pcos';
   const greeting = `${greetingForHour(now.getHours())}${profileName ? `, ${profileName}` : ''}`;
 

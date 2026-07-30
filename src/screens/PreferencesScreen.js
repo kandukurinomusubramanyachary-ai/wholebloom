@@ -118,7 +118,7 @@ export default function PreferencesScreen({ navigation }) {
   const { state, saveProfile, saveSettings } = useApp();
   const profile = state.profile || {};
   const current = state.settings || {};
-  const [name, setName] = useState(profile.name || '');
+  const [name, setName] = useState(profile.preferredName || profile.name || '');
   const [age, setAge] = useState(profile.age ? String(profile.age) : '');
   const [trackingMode, setTrackingMode] = useState(
     current.trackingMode || profile.trackingMode || 'cycle'
@@ -151,7 +151,8 @@ export default function PreferencesScreen({ navigation }) {
     try {
       await saveProfile({
         ...profile,
-        name: name.trim(),
+        preferredName: name.trim(),
+        name: profile.name || name.trim(),
         age: age ? parseInt(age, 10) : null,
         language,
         trackingMode,
@@ -196,16 +197,17 @@ export default function PreferencesScreen({ navigation }) {
             <SectionHeading icon='person-outline' title='About you' />
             <View style={styles.fields}>
               <View style={styles.field}>
-                <Text style={styles.label}>Name</Text>
+                <Text style={styles.label}>Preferred name</Text>
                 <TextInput
                   style={styles.input}
                   value={name}
                   onChangeText={setName}
+                  maxLength={64}
                   placeholder='What should Bloom call you?'
                   placeholderTextColor={COLORS.muted}
                   autoCapitalize='words'
                   textContentType='name'
-                  accessibilityLabel='Name'
+                  accessibilityLabel='Preferred name'
                 />
               </View>
               <View style={styles.field}>

@@ -37,12 +37,12 @@ function TabIcon({ icon, label, focused, reduceMotion }) {
   const scale = focusProgress.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] });
 
   return (
-    <Animated.View style={[styles.tabItem, { transform: [{ scale }] }]}>
+    <Animated.View style={[styles.tabItem, !reduceMotion && { transform: [{ scale }] }]}>
       <View style={styles.iconWrap}>
         {icon === 'bloom' ? (
           <LotusMark
             size={23}
-            color={focused ? COLORS.logo : COLORS.muted}
+            style={{ opacity: focused ? 1 : 0.52 }}
           />
         ) : (
           <Ionicons
@@ -119,7 +119,7 @@ function BloomTabBar({ state, descriptors, navigation }) {
                 styles.tabButton,
                 hovered && !focused && styles.tabButtonHovered,
                 keyboardFocused && styles.tabButtonFocused,
-                pressed && styles.tabButtonPressed,
+                pressed && !reduceMotion && styles.tabButtonPressed,
               ]}
             >
               <TabIcon icon={tab?.icon || 'ellipse'} label={String(label)} focused={focused} reduceMotion={reduceMotion} />

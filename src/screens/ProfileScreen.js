@@ -9,6 +9,7 @@ import ScreenHeader from '../components/ScreenHeader';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import { LotusMark } from '../components/BrandMark';
+import { preferredDisplayName } from '../utils/displayName';
 
 export default function ProfileScreen({ navigation }) {
   const { state, resetAllData } = useApp();
@@ -88,7 +89,7 @@ export default function ProfileScreen({ navigation }) {
               <LotusMark size={32} decorative={false} />
             </View>
             <View style={styles.profileCopy}>
-              <Text style={styles.name}>{state.profile?.name || 'Your Bloom'}</Text>
+              <Text style={styles.name}>{preferredDisplayName(state.profile) || 'Your Bloom'}</Text>
               <Text style={styles.profileMeta}>
                 {state.profile?.age ? `${state.profile.age} years old` : 'A quiet record of your own patterns'}
               </Text>
