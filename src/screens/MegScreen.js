@@ -23,6 +23,10 @@ import {
   describeMegContext,
   megService,
 } from '../services/meg';
+import {
+  recoverableMegRequest,
+  setMegMessageDelivery,
+} from '../services/megLocalQueue';
 import { Entrance, useReducedMotion } from '../components/Motion';
 import { LotusMark } from '../components/BrandMark';
 
@@ -37,21 +41,33 @@ const PRIMARY_MODES = MEG_MODES.slice(0, 3).map((mode, index) => ({
 
 const CONVERSATION_STARTERS = [
   {
-    id: 'body-unpredictable',
-    text: 'I’m tired of my body feeling unpredictable.',
+    id: 'my-symptoms',
+    text: 'Help me understand my symptoms.',
     mode: null,
   },
   {
-    id: 'nothing-changed',
-    text: 'I followed everything and nothing changed.',
+    id: 'my-cycle',
+    text: 'Help me understand my cycle.',
     mode: null,
   },
   {
-    id: 'answers-or-listening',
-    text: 'I don’t know whether I need answers or just someone to listen.',
+    id: 'my-mood',
+    text: 'I want to talk about my mood.',
+    mode: null,
+  },
+  {
+    id: 'food-ideas',
+    text: 'Can you help me think through food ideas?',
+    mode: null,
+  },
+  {
+    id: 'my-pattern',
+    text: 'Help me understand a pattern I noticed.',
     mode: null,
   },
 ];
+
+const INITIAL_MESSAGE_COUNT = 30;
 
 function createId(prefix) {
   idCounter += 1;
@@ -231,14 +247,31 @@ function FeedbackControls({ value, onSelect, disabled }) {
   );
 }
 
-function MessageBubble({ message, onFeedback, feedbackDisabled, animate = false }) {
+function messageTime(value) {
+  const date = new Date(value || '');
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function MessageBubble({ message, onFeedback, onCopy, feedbackDisabled, animate = false }) {
   const isUser = message.role === 'user';
 
   if (isUser) {
     const bubble = (
       <View style={styles.userMessageRow}>
         <View style={styles.userBubble}>
-          <Text style={styles.messageText}>{message.text}</Text>
+          <Text selectable style={styles.messageText}>{message.text}</Text>
+          {message.deliveryStatus === 'pending' ? (
+            <Text style={styles.deliveryStatus}>Sending…</Text>
+          ) : null}
+          {message.deliveryStatus === 'failed' ? (
+            <Text style={[styles.deliveryStatus, styles.deliveryStatusFailed]}>
+              Meg has not replied yet · retry below
+            </Text>
+          ) : null}
+          {messageTime(message.createdAt) ? (
+            <Text style={[styles.messageTime, styles.userMessageTime]}>{messageTime(message.createdAt)}</Text>
+          ) : null}
         </View>
       </View>
     );
@@ -257,13 +290,27 @@ function MessageBubble({ message, onFeedback, feedbackDisabled, animate = false 
       <View style={styles.assistantColumn}>
         <Text style={styles.assistantName}>{message.safety ? 'Important care note' : 'Meg'}</Text>
         <View style={[styles.assistantBubble, message.safety && styles.safetyBubble]}>
-          <Text style={styles.messageText}>{message.text}</Text>
+          <Text selectable style={styles.messageText}>{message.text}</Text>
         </View>
-        <FeedbackControls
-          value={message.feedback}
-          onSelect={(value) => onFeedback(message.id, value)}
-          disabled={feedbackDisabled}
-        />
+        <View style={styles.messageMetaRow}>
+          {messageTime(message.createdAt) ? (
+            <Text style={styles.messageTime}>{messageTime(message.createdAt)}</Text>
+          ) : null}
+          <Pressable
+            onPress={() => onCopy(message)}
+            accessibilityRole='button'
+            accessibilityLabel='Copy Meg message'
+            style={({ pressed, focused }) => [
+              styles.copyButton,
+              focused && styles.interactiveFocus,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Ionicons name='copy-outline' size={14} color={COLORS.muted} />
+            <Text style={styles.copyLabel}>Copy</Text>
+          </Pressable>
+        </View>
+        <FeedbackControls value={message.feedback} onSelect={(value) => onFeedback(message.id, value)} disabled={feedbackDisabled} />
       </View>
     </View>
   );
@@ -381,10 +428,12 @@ export default function MegScreen({ route }) {
   const [failedRequest, setFailedRequest] = useState(null);
   const [feedbackMessageId, setFeedbackMessageId] = useState(null);
   const [clearingConversation, setClearingConversation] = useState(false);
+  const [visibleMessageCount, setVisibleMessageCount] = useState(INITIAL_MESSAGE_COUNT);
   const initialised = useRef(false);
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
   const latestMessageY = useRef(0);
+  const sendLockRef = useRef(false);
 
   function scrollLatestMessageIntoView() {
     scrollRef.current?.scrollTo({
@@ -397,8 +446,16 @@ export default function MegScreen({ route }) {
     if (initialised.current) return;
     if (latestSaved) {
       setCurrentConversationId(latestSaved.id);
-      setMessages(latestSaved.messages || []);
-      setSelectedMode(latestSaved.mode || latestSaved.supportMode || null);
+      const loadedMessages = latestSaved.messages || [];
+      const loadedMode = latestSaved.mode || latestSaved.supportMode || null;
+      setMessages(loadedMessages);
+      setVisibleMessageCount(INITIAL_MESSAGE_COUNT);
+      setSelectedMode(loadedMode);
+      const recoverable = recoverableMegRequest(loadedMessages, latestSaved.id, loadedMode);
+      if (recoverable) {
+        setFailedRequest(recoverable);
+        setError('Meg could not finish this reply.');
+      }
     }
     initialised.current = true;
   }, [latestSaved]);
@@ -445,6 +502,7 @@ export default function MegScreen({ route }) {
     setModePickerOpen(false);
     setConfirmAction(null);
     setNotice(message);
+    setVisibleMessageCount(INITIAL_MESSAGE_COUNT);
   }
 
   async function persistConversation(id, nextMessages, mode) {
@@ -465,10 +523,27 @@ export default function MegScreen({ route }) {
   }
 
   async function requestReply(request) {
+    const pendingMessages = setMegMessageDelivery(
+      request.baseMessages,
+      request.messageId,
+      'pending'
+    );
+    const pendingRequest = { ...request, baseMessages: pendingMessages };
     setTyping(true);
     setError(null);
     setNotice('');
     setFailedRequest(null);
+    setMessages(pendingMessages);
+
+    try {
+      await persistConversation(
+        request.conversationId,
+        pendingMessages,
+        request.mode
+      );
+    } catch {
+      setNotice('Your message is still here on this device.');
+    }
 
     try {
       const memory = memoryEnabled
@@ -482,7 +557,7 @@ export default function MegScreen({ route }) {
         supportMode: request.mode,
         language: state.profile?.language || state.settings?.language || 'en',
         context,
-        history: request.baseMessages,
+        history: pendingMessages,
         memory,
       });
       const resolvedConversationId = result.conversationId || request.conversationId;
@@ -494,7 +569,12 @@ export default function MegScreen({ route }) {
         safety: result.safety || null,
         source: result.source || 'local',
       };
-      const nextMessages = [...request.baseMessages, assistantMessage];
+      const sentMessages = setMegMessageDelivery(
+        pendingMessages,
+        request.messageId,
+        'sent'
+      );
+      const nextMessages = [...sentMessages, assistantMessage];
       setCurrentConversationId(resolvedConversationId);
       setMessages(nextMessages);
 
@@ -504,11 +584,27 @@ export default function MegScreen({ route }) {
         setNotice('Meg replied, but this screen could not refresh the conversation summary.');
       }
     } catch (requestError) {
+      const failedMessages = setMegMessageDelivery(
+        pendingMessages,
+        request.messageId,
+        'failed'
+      );
+      const retryRequest = { ...pendingRequest, baseMessages: failedMessages };
+      setMessages(failedMessages);
       setError(
         requestError?.message
           || 'Meg couldn\'t respond right now. Please try again.'
       );
-      setFailedRequest(request);
+      setFailedRequest(retryRequest);
+      try {
+        await persistConversation(
+          request.conversationId,
+          failedMessages,
+          request.mode
+        );
+      } catch {
+        setNotice('Your message remains visible, but Bloom could not save the retry state.');
+      }
     } finally {
       setTyping(false);
       if (Platform.OS === 'web') {
@@ -519,7 +615,8 @@ export default function MegScreen({ route }) {
 
   async function handleSend(overrideText, overrideMode) {
     const messageText = String(overrideText ?? input).trim();
-    if (!messageText || typing) return;
+    if (!messageText || typing || sendLockRef.current) return;
+    sendLockRef.current = true;
 
     const mode = overrideMode || selectedMode || null;
     const conversationId = currentConversationId || createId('meg-conversation');
@@ -528,6 +625,7 @@ export default function MegScreen({ route }) {
       role: 'user',
       text: messageText,
       createdAt: new Date().toISOString(),
+      deliveryStatus: 'pending',
     };
     const baseMessages = [...messages, userMessage];
 
@@ -536,15 +634,34 @@ export default function MegScreen({ route }) {
     setSelectedMode(mode);
     setInput('');
     setModePickerOpen(false);
+    setTyping(true);
 
-    await persistConversation(conversationId, baseMessages, mode);
-    await requestReply({
-      message: messageText,
-      messageId: userMessage.id,
-      mode,
-      conversationId,
-      baseMessages,
-    });
+    try {
+      try {
+        await persistConversation(conversationId, baseMessages, mode);
+      } catch (saveError) {
+        setNotice('Your message is still here. Bloom will keep trying to save the conversation.');
+      }
+      await requestReply({
+        message: messageText,
+        messageId: userMessage.id,
+        mode,
+        conversationId,
+        baseMessages,
+      });
+    } finally {
+      sendLockRef.current = false;
+    }
+  }
+
+  async function handleCopyMessage(message) {
+    try {
+      const Clipboard = await import('expo-clipboard');
+      await Clipboard.setStringAsync(String(message?.text || ''));
+      setNotice('Meg’s message was copied.');
+    } catch (copyError) {
+      setNotice('That message could not be copied. You can still select the text.');
+    }
   }
 
   async function handleFeedback(messageId, feedback) {
@@ -620,6 +737,7 @@ export default function MegScreen({ route }) {
   }
 
   const hasConversation = messages.length > 0;
+  const visibleMessages = messages.slice(-visibleMessageCount);
   const selectedPrimaryMode = PRIMARY_MODES.find((mode) => mode.id === selectedMode);
   const selectedModeLabel = selectedPrimaryMode?.activeLabel
     || MEG_MODES.find((mode) => mode.id === selectedMode)?.label;
@@ -751,6 +869,7 @@ export default function MegScreen({ route }) {
             keyboardShouldPersistTaps='handled'
             keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
             automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+            maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
             showsVerticalScrollIndicator={false}
           >
             {!hasConversation ? (
@@ -781,10 +900,25 @@ export default function MegScreen({ route }) {
               </Entrance>
             ) : (
               <View style={styles.messages}>
-                {messages.map((message, index) => (
+                {messages.length > visibleMessages.length ? (
+                  <Pressable
+                    onPress={() => setVisibleMessageCount((count) => count + INITIAL_MESSAGE_COUNT)}
+                    accessibilityRole='button'
+                    accessibilityLabel='Show earlier messages'
+                    style={({ pressed, focused }) => [
+                      styles.earlierMessages,
+                      focused && styles.interactiveFocus,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Ionicons name='chevron-up' size={15} color={COLORS.brand} />
+                    <Text style={styles.earlierMessagesText}>Show earlier messages</Text>
+                  </Pressable>
+                ) : null}
+                {visibleMessages.map((message, index) => (
                   <View
                     key={message.id}
-                    onLayout={index === messages.length - 1 ? (event) => {
+                    onLayout={index === visibleMessages.length - 1 ? (event) => {
                       latestMessageY.current = event.nativeEvent.layout.y
                         + (message.role === 'assistant' ? 20 : 0);
                     } : undefined}
@@ -792,8 +926,9 @@ export default function MegScreen({ route }) {
                     <MessageBubble
                       message={message}
                       onFeedback={handleFeedback}
+                      onCopy={handleCopyMessage}
                       feedbackDisabled={typing || Boolean(feedbackMessageId)}
-                      animate={index >= messages.length - 2}
+                      animate={index >= visibleMessages.length - 2}
                     />
                   </View>
                 ))}
@@ -1337,6 +1472,17 @@ const styles = StyleSheet.create({
   },
 
   messages: { gap: 20 },
+  earlierMessages: {
+    minHeight: 44,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    borderRadius: 22,
+    backgroundColor: COLORS.surfaceSoft,
+  },
+  earlierMessagesText: { fontSize: 12, lineHeight: 16, fontWeight: '700', color: COLORS.brand },
   userMessageRow: { alignItems: 'flex-end' },
   userBubble: {
     maxWidth: '78%',
@@ -1380,6 +1526,27 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceWarm,
   },
   messageText: { fontSize: 15, lineHeight: 23, color: COLORS.ink },
+  deliveryStatus: { marginTop: 4, fontSize: 10.5, lineHeight: 15, color: COLORS.muted },
+  deliveryStatusFailed: { color: COLORS.error },
+  messageMetaRow: {
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  messageTime: { fontSize: 10.5, lineHeight: 15, color: COLORS.muted },
+  userMessageTime: { marginTop: 4, textAlign: 'right' },
+  copyButton: {
+    minHeight: 34,
+    minWidth: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: 5,
+    borderRadius: 10,
+  },
+  copyLabel: { fontSize: 11, lineHeight: 15, color: COLORS.muted },
   feedbackRow: {
     minHeight: 44,
     flexDirection: 'row',
