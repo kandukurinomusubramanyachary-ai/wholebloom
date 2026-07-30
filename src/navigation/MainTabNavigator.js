@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -53,7 +53,15 @@ function TabIcon({ icon, label, focused, reduceMotion }) {
         )}
         <View style={[styles.activeDot, !focused && styles.activeDotHidden]} />
       </View>
-      <Text style={[styles.tabLabel, focused && styles.tabLabelFocused]}>{label}</Text>
+      <Text
+        adjustsFontSizeToFit
+        maxFontSizeMultiplier={1.35}
+        minimumFontScale={0.72}
+        numberOfLines={1}
+        style={[styles.tabLabel, focused && styles.tabLabelFocused]}
+      >
+        {label}
+      </Text>
     </Animated.View>
   );
 }
@@ -61,6 +69,7 @@ function TabIcon({ icon, label, focused, reduceMotion }) {
 function BloomTabBar({ state, descriptors, navigation }) {
   const insets = useSafeAreaInsets();
   const reduceMotion = useReducedMotion();
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [dockWidth, setDockWidth] = useState(0);
   const activeIndex = useRef(new Animated.Value(state.index)).current;
   const segmentWidth = dockWidth ? dockWidth / state.routes.length : 0;
@@ -73,6 +82,22 @@ function BloomTabBar({ state, descriptors, navigation }) {
       useNativeDriver: Platform.OS !== 'web',
     }).start();
   }, [activeIndex, reduceMotion, state.index]);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return undefined;
+
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSubscription = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hideSubscription = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
+
+  if (keyboardVisible) return null;
 
   return (
     <View style={[styles.tabBarFrame, { paddingBottom: Math.max(insets.bottom, 8) }]}>
@@ -225,7 +250,7 @@ const styles = StyleSheet.create({
     }),
   },
   tabButtonPressed: { opacity: 0.72, transform: [{ scale: 0.97 }] },
-  tabItem: { alignItems: 'center', justifyContent: 'center' },
+  tabItem: { width: '100%', minWidth: 0, alignItems: 'center', justifyContent: 'center' },
   iconWrap: { height: 27, alignItems: 'center', justifyContent: 'center' },
   activeDot: {
     position: 'absolute',
@@ -241,6 +266,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: 11,
     lineHeight: 14,
+    maxWidth: '100%',
+    textAlign: 'center',
     color: COLORS.muted,
     fontWeight: '500',
   },

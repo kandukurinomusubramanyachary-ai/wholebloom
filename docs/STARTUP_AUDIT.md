@@ -153,7 +153,7 @@ listed above; all optional native operations are deferred.
 | Six `EXPO_PUBLIC_FIREBASE_*` Web App values | Firebase module evaluation and AuthProvider initialization | Missing values produce the generic `configuration-check` diagnostic. Values are public client configuration, never Admin credentials. |
 | `EXPO_PUBLIC_MEG_API_URL` | Default Meg provider creation on the first message | Local development may fall back to loopback HTTP. A non-development build rejects missing, non-HTTPS, localhost, loopback, private-LAN, link-local, and other non-public addresses. |
 | EAS `preview` environment | At EAS build time | A local ignored `.env.preview` file is not evidence that the remote EAS environment is complete. Verify EAS environment variables before each build. |
-| `app.json` | Native build/config resolution | Current Android package is `com.bloomhealth.app`, version is `1.0.2`, version code is `3`, keyboard mode is `resize`, and notification/local-authentication plugins are enabled. |
+| `app.json` | Native build/config resolution | Current Android package is `com.bloomhealth.app`, version is `1.1.0`, version code is `4`, keyboard mode is `resize`, and notification/local-authentication plugins are enabled. |
 | Deployed Node backend | First Meg request, not application startup | Must be public HTTPS for preview/production, healthy, configured for Firebase Admin/token verification, and reachable under its production CORS policy. |
 
 Backend secrets such as Firebase Admin credentials and the model-provider API

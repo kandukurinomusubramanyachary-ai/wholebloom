@@ -63,6 +63,16 @@ test('primary navigation remains Today, Timeline, Meg, Insights and Diet', () =>
   assert.deepEqual(names, ['Today', 'Timeline', 'Meg', 'Insights', 'Diet']);
 });
 
+test('custom bottom navigation clears the mobile keyboard and protects narrow labels', () => {
+  const tabs = read('src/navigation/MainTabNavigator.js');
+
+  assert.match(tabs, /Keyboard\.addListener/);
+  assert.match(tabs, /if \(keyboardVisible\) return null/);
+  assert.match(tabs, /numberOfLines=\{1\}/);
+  assert.match(tabs, /adjustsFontSizeToFit/);
+  assert.match(tabs, /maxFontSizeMultiplier=\{1\.35\}/);
+});
+
 test('Diet UI is keyboard-safe, locally generated and free of horizontal scrolling', () => {
   const diet = read('src/screens/DietScreen.js');
 

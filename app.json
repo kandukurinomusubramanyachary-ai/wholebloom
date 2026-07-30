@@ -2,7 +2,7 @@
   "expo": {
     "name": "Bloom",
     "slug": "bloom",
-    "version": "1.0.2",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -26,7 +26,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.bloom.app",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "infoPlist": {
         "NSFaceIDUsageDescription": "Bloom uses Face ID to protect your health data."
       }
@@ -38,7 +38,7 @@
         "backgroundColor": "#FFFDFE"
       },
       "package": "com.bloomhealth.app",
-      "versionCode": 3,
+      "versionCode": 4,
       "permissions": [
         "SCHEDULE_EXACT_ALARM",
         "RECEIVE_BOOT_COMPLETED",

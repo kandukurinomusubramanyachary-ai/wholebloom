@@ -3,8 +3,8 @@
 Bloom's native display name remains `Bloom`. The iOS application uses:
 
 - Bundle identifier: `com.bloom.app`
-- App version: `1.0.2`
-- Build number: `1`
+- App version: `1.1.0`
+- Build number: `2`
 - Supported devices: iPhone
 - Orientation: portrait
 

@@ -12,8 +12,8 @@ Current source configuration:
 | --- | --- |
 | App | Bloom |
 | Android application ID | `com.bloomhealth.app` |
-| App version | `1.0.2` |
-| Android version code | `3` |
+| App version | `1.1.0` |
+| Android version code | `4` |
 | EAS profile | `preview` |
 | Expected artifact | Installable APK |
 | Approved build status | **NOT READY** |
