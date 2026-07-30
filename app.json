@@ -42,6 +42,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "expo-splash-screen",
       "expo-local-authentication",
       "expo-notifications"
     ],

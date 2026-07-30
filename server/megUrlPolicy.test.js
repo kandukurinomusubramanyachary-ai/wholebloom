@@ -5,9 +5,12 @@ const {
   resolveMegApiBaseUrl,
 } = require('../src/services/megUrlPolicy');
 
-test('Meg URL policy keeps loopback available in development', () => {
+test('Meg URL policy accepts explicitly configured local URLs in development', () => {
   assert.equal(
-    resolveMegApiBaseUrl({ isDevelopment: true }),
+    resolveMegApiBaseUrl({
+      configuredValue: 'http://127.0.0.1:3001',
+      isDevelopment: true,
+    }),
     'http://127.0.0.1:3001'
   );
   assert.equal(
@@ -16,6 +19,13 @@ test('Meg URL policy keeps loopback available in development', () => {
       isDevelopment: true,
     }),
     'http://192.168.1.8:3001'
+  );
+});
+
+test('Meg URL policy requires an explicit development URL', () => {
+  assert.throws(
+    () => resolveMegApiBaseUrl({ isDevelopment: true }),
+    /required/
   );
 });
 

@@ -155,7 +155,7 @@ export function AppProvider({ children }) {
   const publicState = useMemo(() => ({ ...state, ...derivedValues(state) }), [state]);
 
   useEffect(() => {
-    setStartupStage('profile-loading');
+    setStartupStage('profile-load');
     dispatch({ type: 'RESET_FOR_USER' });
     loadInitialData();
   }, [user?.uid]);
@@ -167,6 +167,7 @@ export function AppProvider({ children }) {
 
   async function loadInitialData() {
     try {
+      setStartupStage('app-state-load');
       const [
         accountData, megConversations, meals, movements, medications,
         dailyPlans, doctorReportSettings, settings, bookmarks, privacySettings,
@@ -188,7 +189,14 @@ export function AppProvider({ children }) {
 
       const { profile, checkins, periods } = accountData;
       const [appLockEnabled, appLockType, appLockPin, appLockTimeout, hidePreview] = privacySettings;
-      const loadedSettings = settings || {};
+      const loadedSettings = settings && typeof settings === 'object' && !Array.isArray(settings)
+        ? settings
+        : {};
+      const loadedDoctorReportSettings = doctorReportSettings
+        && typeof doctorReportSettings === 'object'
+        && !Array.isArray(doctorReportSettings)
+        ? doctorReportSettings
+        : null;
       dispatch({ type: 'SET_PROFILE', payload: profile });
       dispatch({ type: 'SET_CHECKINS', payload: normalizeCollection(checkins, normalizeCheckin) });
       dispatch({ type: 'SET_PERIODS', payload: normalizeCollection(periods, normalizePeriod) });
@@ -197,7 +205,7 @@ export function AppProvider({ children }) {
       dispatch({ type: 'SET_MEDICATIONS', payload: normalizeCollection(medications) });
       dispatch({ type: 'SET_DAILY_PLANS', payload: normalizeCollection(dailyPlans) });
       dispatch({ type: 'SET_MEG_CONVERSATIONS', payload: megConversations });
-      dispatch({ type: 'SET_DOCTOR_REPORT_SETTINGS', payload: doctorReportSettings || null });
+      dispatch({ type: 'SET_DOCTOR_REPORT_SETTINGS', payload: loadedDoctorReportSettings });
       dispatch({
         type: 'SET_SETTINGS',
         payload: {
@@ -206,7 +214,7 @@ export function AppProvider({ children }) {
           reminders: { ...defaultReminders, ...(loadedSettings.reminders || {}) },
         },
       });
-      dispatch({ type: 'SET_BOOKMARKS', payload: bookmarks || [] });
+      dispatch({ type: 'SET_BOOKMARKS', payload: Array.isArray(bookmarks) ? bookmarks : [] });
       dispatch({
         type: 'SET_PRIVACY',
         payload: {

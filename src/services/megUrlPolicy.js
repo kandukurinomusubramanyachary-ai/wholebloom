@@ -58,7 +58,7 @@ function isNonPublicHostname(hostname) {
 function resolveMegApiBaseUrl({
   configuredValue,
   isDevelopment,
-  developmentFallback = 'http://127.0.0.1:3001',
+  developmentFallback = '',
 } = {}) {
   const value = String(
     configuredValue || (isDevelopment ? developmentFallback : '')

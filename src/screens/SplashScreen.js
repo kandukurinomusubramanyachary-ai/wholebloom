@@ -4,9 +4,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BrandMark from '../components/BrandMark';
 import { useReducedMotion } from '../components/Motion';
 import { COLORS } from '../utils/constants';
+import { setStartupStage } from '../diagnostics/startupDiagnostics';
 
 const SPLASH_DURATION = 2200;
 const REDUCED_MOTION_DURATION = 450;
+const SPLASH_TIMEOUT = 4000;
 
 export default function SplashScreen({ ready, onFinish }) {
   const insets = useSafeAreaInsets();
@@ -14,8 +16,22 @@ export default function SplashScreen({ ready, onFinish }) {
   const logoProgress = useRef(new Animated.Value(reduceMotion ? 1 : 0)).current;
   const loaderProgress = useRef(new Animated.Value(0)).current;
   const [animationComplete, setAnimationComplete] = useState(false);
+  const finishCalled = useRef(false);
+  const onFinishRef = useRef(onFinish);
 
   useEffect(() => {
+    onFinishRef.current = onFinish;
+  }, [onFinish]);
+
+  function finishSplash() {
+    if (finishCalled.current) return;
+    finishCalled.current = true;
+    setStartupStage('splash-hidden');
+    onFinishRef.current?.();
+  }
+
+  useEffect(() => {
+    setStartupStage('splash-visible');
     const logoAnimation = Animated.timing(logoProgress, {
       toValue: 1,
       duration: reduceMotion ? 0 : 1400,
@@ -42,8 +58,13 @@ export default function SplashScreen({ ready, onFinish }) {
   }, [loaderProgress, logoProgress, reduceMotion]);
 
   useEffect(() => {
-    if (ready && animationComplete) onFinish();
-  }, [animationComplete, onFinish, ready]);
+    const timeout = setTimeout(finishSplash, SPLASH_TIMEOUT);
+    return () => clearTimeout(timeout);
+  }, []);
+
+  useEffect(() => {
+    if (ready && animationComplete) finishSplash();
+  }, [animationComplete, ready]);
 
   const opacity = logoProgress.interpolate({
     inputRange: [0, 1],

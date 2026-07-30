@@ -409,7 +409,6 @@ export function createLocalMegProvider({ latencyMs = 260 } = {}) {
   };
 }
 
-const DEFAULT_MEG_API_BASE_URL = 'http://127.0.0.1:3001';
 const MEG_REQUEST_TIMEOUT_MS = 95000;
 
 function megApiBaseUrl() {
@@ -418,7 +417,6 @@ function megApiBaseUrl() {
   return resolveMegApiBaseUrl({
     configuredValue: configured,
     isDevelopment,
-    developmentFallback: DEFAULT_MEG_API_BASE_URL,
   });
 }
 

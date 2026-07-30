@@ -1,21 +1,35 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const LAST_STAGE_KEY = '@bloom/startup/last-stage';
-const LAST_FAILURE_KEY = '@bloom/startup/last-failure';
-const DEFAULT_STAGE = 'app-mounted';
+const LAST_STAGE_KEY = '@bloom:v1:startup:last-stage';
+const LAST_FAILURE_KEY = '@bloom:v1:startup:last-failure';
+const LEGACY_LAST_FAILURE_KEY = '@bloom/startup/last-failure';
+const DEFAULT_STAGE = 'native-entry';
 const DEFAULT_MESSAGE = 'Bloom encountered an unexpected startup error.';
 
 const STARTUP_STAGES = new Set([
+  'native-entry',
   'app-mounted',
-  'firebase-config',
-  'firebase-initialised',
-  'auth-resolving',
-  'profile-loading',
+  'splash-visible',
+  'configuration-check',
+  'firebase-app',
+  'firebase-auth',
+  'firestore',
+  'auth-restoration',
+  'profile-load',
+  'app-state-load',
   'navigation-ready',
+  'first-screen-rendered',
+  'splash-hidden',
 ]);
 
 let currentStage = DEFAULT_STAGE;
 let memoryFailure = null;
+
+function createDiagnosticId() {
+  const time = Date.now().toString(36);
+  const random = Math.random().toString(36).slice(2, 8);
+  return `bloom-${time}-${random}`;
+}
 
 function normaliseStage(stage) {
   return STARTUP_STAGES.has(stage) ? stage : currentStage || DEFAULT_STAGE;
@@ -48,6 +62,7 @@ export function sanitizeStartupError(error, fallback = DEFAULT_MESSAGE) {
 
 export function createStartupFailure(error, stage = currentStage, fallback = DEFAULT_MESSAGE) {
   return {
+    diagnosticId: createDiagnosticId(),
     stage: normaliseStage(stage),
     message: sanitizeStartupError(error, fallback),
     timestamp: new Date().toISOString(),
@@ -85,12 +100,16 @@ export async function loadLastStartupFailure() {
   if (memoryFailure) return memoryFailure;
 
   try {
-    const value = await AsyncStorage.getItem(LAST_FAILURE_KEY);
+    const value = await AsyncStorage.getItem(LAST_FAILURE_KEY)
+      || await AsyncStorage.getItem(LEGACY_LAST_FAILURE_KEY);
     if (!value) return null;
     const parsed = JSON.parse(value);
     if (!parsed || typeof parsed !== 'object') return null;
 
     const failure = {
+      diagnosticId: typeof parsed.diagnosticId === 'string'
+        ? parsed.diagnosticId.slice(0, 48)
+        : createDiagnosticId(),
       stage: normaliseStage(parsed.stage),
       message: sanitizeStartupError(parsed.message),
       timestamp: typeof parsed.timestamp === 'string' ? parsed.timestamp : null,
@@ -104,13 +123,13 @@ export async function loadLastStartupFailure() {
 
 export async function clearStartupFailure() {
   memoryFailure = null;
-  await AsyncStorage.removeItem(LAST_FAILURE_KEY).catch(() => {});
+  await AsyncStorage.multiRemove([LAST_FAILURE_KEY, LEGACY_LAST_FAILURE_KEY]).catch(() => {});
 }
 
-export function markStartupReady() {
-  setStartupStage('navigation-ready');
+export function markStartupReady(stage = 'navigation-ready') {
+  setStartupStage(stage);
   memoryFailure = null;
-  AsyncStorage.removeItem(LAST_FAILURE_KEY).catch(() => {});
+  AsyncStorage.multiRemove([LAST_FAILURE_KEY, LEGACY_LAST_FAILURE_KEY]).catch(() => {});
 }
 
 export function installGlobalErrorHandler() {
@@ -137,4 +156,3 @@ export function installGlobalErrorHandler() {
   globalThis.__bloomStartupHandlerInstalled = true;
   return true;
 }
-

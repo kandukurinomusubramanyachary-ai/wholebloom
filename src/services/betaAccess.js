@@ -1,11 +1,10 @@
-const DEFAULT_BLOOM_API_BASE_URL = 'http://127.0.0.1:3001';
 const BETA_CHECK_TIMEOUT_MS = 15000;
 
 function bloomApiBaseUrl() {
   const configured =
     process.env.EXPO_PUBLIC_BLOOM_API_URL
     || process.env.EXPO_PUBLIC_MEG_API_URL;
-  return String(configured || DEFAULT_BLOOM_API_BASE_URL).replace(/\/+$/, '');
+  return String(configured || '').replace(/\/+$/, '');
 }
 
 export function normalizeBetaEmail(value) {
@@ -61,6 +60,12 @@ export async function checkBetaEmail(
   const normalizedEmail = normalizeBetaEmail(email);
   if (!isValidBetaEmail(normalizedEmail)) {
     throw new BetaAccessError('invalid-email', 'Enter a valid email address.');
+  }
+  if (!baseUrl) {
+    throw new BetaAccessError(
+      'server-error',
+      'We could not check Beta access right now. Please try again.'
+    );
   }
 
   const controller = new AbortController();

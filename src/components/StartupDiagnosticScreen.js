@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import * as ReactNative from 'react-native';
+import Constants from 'expo-constants';
 import {
   Platform,
   Pressable,
@@ -13,6 +13,7 @@ import { loadLastStartupFailure } from '../diagnostics/startupDiagnostics';
 import { COLORS, LAYOUT, WEB_FOCUS } from '../utils/constants';
 
 const FALLBACK_FAILURE = {
+  diagnosticId: 'bloom-unavailable',
   stage: 'app-mounted',
   message: 'Bloom encountered an unexpected startup error.',
 };
@@ -36,20 +37,28 @@ export default function StartupDiagnosticScreen({ failure, onRetry }) {
   }, [failure]);
 
   const diagnosticText = useMemo(
-    () => [
+    () => {
+      const platformConstants = Platform.constants || {};
+      const deviceName = [
+        platformConstants.Manufacturer,
+        platformConstants.Model || platformConstants.interfaceIdiom,
+      ].filter(Boolean).join(' ');
+      return [
       'Bloom startup diagnostic',
+      'Diagnostic ID: ' + displayedFailure.diagnosticId,
       'Stage: ' + displayedFailure.stage,
       'Message: ' + displayedFailure.message,
-    ].join('\n'),
-    [displayedFailure.message, displayedFailure.stage]
+      'Bloom version: ' + (Constants.expoConfig?.version || 'unknown'),
+      'Platform: ' + Platform.OS,
+      'OS version: ' + String(Platform.Version),
+      'Device: ' + (deviceName || 'unavailable'),
+      'Timestamp: ' + (displayedFailure.timestamp || new Date().toISOString()),
+      ].join('\n');
+    },
+    [displayedFailure]
   );
 
-  const nativeClipboard = ReactNative.Clipboard;
-  const webClipboard = Platform.OS === 'web'
-    && typeof globalThis !== 'undefined'
-    && typeof globalThis.navigator !== 'undefined'
-    && typeof globalThis.navigator.clipboard?.writeText === 'function';
-  const canCopy = webClipboard || typeof nativeClipboard?.setString === 'function';
+  const canCopy = true;
 
   async function handleRetry() {
     if (retrying || typeof onRetry !== 'function') return;
@@ -65,11 +74,8 @@ export default function StartupDiagnosticScreen({ failure, onRetry }) {
   async function handleCopy() {
     if (!canCopy) return;
     try {
-      if (webClipboard) {
-        await globalThis.navigator.clipboard.writeText(diagnosticText);
-      } else {
-        nativeClipboard.setString(diagnosticText);
-      }
+      const Clipboard = await import('expo-clipboard');
+      await Clipboard.setStringAsync(diagnosticText);
       setCopied(true);
     } catch {
       setCopied(false);
@@ -91,6 +97,10 @@ export default function StartupDiagnosticScreen({ failure, onRetry }) {
             <Text style={styles.message}>{displayedFailure.message}</Text>
 
             <View style={styles.stageBox}>
+              <Text style={styles.stageLabel}>Diagnostic ID</Text>
+              <Text selectable style={styles.stageValue}>
+                {displayedFailure.diagnosticId}
+              </Text>
               <Text style={styles.stageLabel}>Startup stage</Text>
               <Text selectable style={styles.stageValue}>
                 {displayedFailure.stage}
@@ -126,7 +136,7 @@ export default function StartupDiagnosticScreen({ failure, onRetry }) {
                 ]}
               >
                 <Text style={styles.secondaryButtonText}>
-                  {copied ? 'Diagnostic copied' : 'Copy diagnostic'}
+                  {copied ? 'Technical details copied' : 'Copy technical details'}
                 </Text>
               </Pressable>
             ) : null}

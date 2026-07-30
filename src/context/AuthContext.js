@@ -22,7 +22,10 @@ import {
   firebaseInitializationError,
   initializeFirebaseServices,
 } from '../services/firebase';
-import { setStartupStage } from '../diagnostics/startupDiagnostics';
+import {
+  recordStartupFailure,
+  setStartupStage,
+} from '../diagnostics/startupDiagnostics';
 import { stripUndefined } from '../services/userData';
 
 export const REQUIRED_DATA_CONSENT =
@@ -106,18 +109,29 @@ export function AuthProvider({ children }) {
       return undefined;
     }
 
-    setStartupStage('auth-resolving');
-    return onAuthStateChanged(
-      services.auth,
-      (nextUser) => {
-        if (!provisioningRef.current) setUser(nextUser);
-        setInitializing(false);
-      },
-      () => {
-        setUser(null);
-        setInitializing(false);
-      }
-    );
+    setStartupStage('auth-restoration');
+    try {
+      return onAuthStateChanged(
+        services.auth,
+        (nextUser) => {
+          if (!provisioningRef.current) setUser(nextUser);
+          setInitializing(false);
+        },
+        () => {
+          setUser(null);
+          setInitializing(false);
+        }
+      );
+    } catch {
+      setUser(null);
+      setStartupFailure(recordStartupFailure(
+        'Bloom could not restore sign-in on this device.',
+        'auth-restoration',
+        'Bloom could not restore sign-in on this device.'
+      ));
+      setInitializing(false);
+      return undefined;
+    }
   }, [retryToken]);
 
   const retryStartup = useCallback(() => {

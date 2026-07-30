@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { AppState, Easing, Platform } from 'react-native';
@@ -21,7 +21,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import AppLockModal from '../components/AppLockModal';
 import { useReducedMotion } from '../components/Motion';
 import { COLORS } from '../utils/constants';
-import { markStartupReady } from '../diagnostics/startupDiagnostics';
+import { markStartupReady, setStartupStage } from '../diagnostics/startupDiagnostics';
 
 const Stack = createStackNavigator();
 
@@ -32,6 +32,11 @@ export default function RootNavigator() {
   const [locked, setLocked] = useState(false);
   const appState = useRef(AppState.currentState);
   const backgroundTime = useRef(null);
+  const handleSplashFinish = useCallback(() => setSplashComplete(true), []);
+  const handleNavigationReady = useCallback(() => {
+    setStartupStage('navigation-ready');
+    requestAnimationFrame(() => markStartupReady('first-screen-rendered'));
+  }, []);
 
   useEffect(() => {
     async function handleScreenCapture() {
@@ -76,11 +81,11 @@ export default function RootNavigator() {
     return () => subscription.remove();
   }, [state.privacy.appLockEnabled, state.privacy.appLockTimeout]);
 
-  if (state.isLoading || !splashComplete) {
+  if (!splashComplete) {
     return (
       <SplashScreen
         ready={!state.isLoading}
-        onFinish={() => setSplashComplete(true)}
+        onFinish={handleSplashFinish}
       />
     );
   }
@@ -89,7 +94,7 @@ export default function RootNavigator() {
     <>
       <NavigationContainer
         theme={navigationTheme}
-        onReady={markStartupReady}
+        onReady={handleNavigationReady}
       >
         <Stack.Navigator
           initialRouteName='Main'

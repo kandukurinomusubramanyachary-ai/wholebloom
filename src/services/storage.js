@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+export const STORAGE_KEY_VERSION = 1;
+
 const KEYS = {
   SCHEMA_VERSION: '@bloom_schema_version',
   USER_PROFILE: '@bloom_user_profile',
@@ -39,6 +41,52 @@ const EXPORTABLE_KEYS = [
   'STATS',
 ];
 
+const INVALID_JSON = Symbol('invalid-json');
+
+export async function safeGetItem(key, storageBackend = AsyncStorage) {
+  try {
+    return await storageBackend.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+export async function safeSetItem(key, value, storageBackend = AsyncStorage) {
+  try {
+    await storageBackend.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function safeRemoveItem(key, storageBackend = AsyncStorage) {
+  try {
+    await storageBackend.removeItem(key);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function safeParseJson(value, fallback = null) {
+  if (typeof value !== 'string') return fallback;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
+export function safeStringifyJson(value, fallback = null) {
+  try {
+    const serialized = JSON.stringify(value);
+    return typeof serialized === 'string' ? serialized : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 class StorageService {
   constructor() {
     this.userScope = null;
@@ -54,20 +102,49 @@ class StorageService {
 
   clearUserScope(uid) {
     const normalizedUid = encodeURIComponent(String(uid || '').trim());
-    if (!uid || this.userScope === normalizedUid) this.userScope = null;
+    if (!normalizedUid || this.userScope === normalizedUid) this.userScope = null;
   }
 
   scopedKey(key, userScope = this.userScope) {
     if (!userScope) {
       throw new Error('Bloom device storage requires a signed-in account.');
     }
+    return `@bloom_user:v${STORAGE_KEY_VERSION}:${userScope}:${String(key).replace(/^@/, '')}`;
+  }
+
+  legacyScopedKey(key, userScope = this.userScope) {
+    if (!userScope) {
+      throw new Error('Bloom device storage requires a signed-in account.');
+    }
     return `@bloom_user:${userScope}:${String(key).replace(/^@/, '')}`;
+  }
+
+  async readParsedItem(storageKey) {
+    const serialized = await safeGetItem(storageKey);
+    if (serialized === null) return { found: false, value: null };
+
+    const value = safeParseJson(serialized, INVALID_JSON);
+    if (value !== INVALID_JSON) return { found: true, value };
+
+    await safeRemoveItem(storageKey);
+    return { found: false, value: null };
   }
 
   async getItem(key, userScope = this.userScope) {
     try {
-      const value = await AsyncStorage.getItem(this.scopedKey(key, userScope));
-      return value ? JSON.parse(value) : null;
+      const storageKey = this.scopedKey(key, userScope);
+      const current = await this.readParsedItem(storageKey);
+      if (current.found) return current.value;
+
+      const legacyKey = this.legacyScopedKey(key, userScope);
+      const legacy = await this.readParsedItem(legacyKey);
+      if (!legacy.found) return null;
+
+      const serialized = safeStringifyJson(legacy.value);
+      if (serialized !== null && await safeSetItem(storageKey, serialized)) {
+        await safeRemoveItem(legacyKey);
+      }
+      return legacy.value;
     } catch (error) {
       console.error(`Error reading ${key}:`, error);
       return null;
@@ -76,7 +153,10 @@ class StorageService {
 
   async setItem(key, value, userScope = this.userScope) {
     try {
-      await AsyncStorage.setItem(this.scopedKey(key, userScope), JSON.stringify(value));
+      const serialized = safeStringifyJson(value);
+      if (serialized === null) throw new Error('Value could not be serialized.');
+      const saved = await safeSetItem(this.scopedKey(key, userScope), serialized);
+      if (!saved) throw new Error('AsyncStorage write failed.');
       return true;
     } catch (error) {
       console.error(`Error writing ${key}:`, error);
@@ -86,7 +166,9 @@ class StorageService {
 
   async removeItem(key, userScope = this.userScope) {
     try {
-      await AsyncStorage.removeItem(this.scopedKey(key, userScope));
+      const removed = await safeRemoveItem(this.scopedKey(key, userScope));
+      const removedLegacy = await safeRemoveItem(this.legacyScopedKey(key, userScope));
+      if (!removed || !removedLegacy) throw new Error('AsyncStorage remove failed.');
       return true;
     } catch (error) {
       console.error(`Error removing ${key}:`, error);
@@ -96,7 +178,8 @@ class StorageService {
 
   async upsertCollection(key, item, matcher) {
     const userScope = this.userScope;
-    const items = await this.getItem(key, userScope) || [];
+    const storedItems = await this.getItem(key, userScope);
+    const items = Array.isArray(storedItems) ? storedItems : [];
     const existingIndex = items.findIndex(matcher);
     const nextItems = [...items];
     if (existingIndex >= 0) nextItems[existingIndex] = { ...items[existingIndex], ...item };
@@ -107,7 +190,8 @@ class StorageService {
 
   async removeFromCollection(key, matcher) {
     const userScope = this.userScope;
-    const items = await this.getItem(key, userScope) || [];
+    const storedItems = await this.getItem(key, userScope);
+    const items = Array.isArray(storedItems) ? storedItems : [];
     const nextItems = items.filter((item) => !matcher(item));
     await this.setItem(key, nextItems, userScope);
     return nextItems;
@@ -191,7 +275,8 @@ class StorageService {
   getBookmarks() { return this.getItem(KEYS.BOOKMARKS); }
   async toggleBookmark(articleId) {
     const userScope = this.userScope;
-    const bookmarks = await this.getItem(KEYS.BOOKMARKS, userScope) || [];
+    const storedBookmarks = await this.getItem(KEYS.BOOKMARKS, userScope);
+    const bookmarks = Array.isArray(storedBookmarks) ? [...storedBookmarks] : [];
     const index = bookmarks.indexOf(articleId);
     if (index >= 0) {
       bookmarks.splice(index, 1);
@@ -220,7 +305,10 @@ class StorageService {
   getStats() { return this.getItem(KEYS.STATS); }
   async updateStats(updates) {
     const userScope = this.userScope;
-    const stats = await this.getItem(KEYS.STATS, userScope) || {};
+    const storedStats = await this.getItem(KEYS.STATS, userScope);
+    const stats = storedStats && typeof storedStats === 'object' && !Array.isArray(storedStats)
+      ? storedStats
+      : {};
     const newStats = { ...stats, ...updates };
     await this.setItem(KEYS.STATS, newStats, userScope);
     return newStats;
@@ -239,9 +327,13 @@ class StorageService {
   // Delete all data
   async deleteAllData() {
     const userScope = this.userScope;
-    const keys = Object.values(KEYS).map((key) => this.scopedKey(key, userScope));
+    const keys = Object.values(KEYS).flatMap((key) => [
+      this.scopedKey(key, userScope),
+      this.legacyScopedKey(key, userScope),
+    ]);
     try {
-      await AsyncStorage.multiRemove(keys);
+      const results = await Promise.all(keys.map((key) => safeRemoveItem(key)));
+      if (results.some((removed) => !removed)) throw new Error('AsyncStorage remove failed.');
       return true;
     } catch (error) {
       console.error('Error deleting all data:', error);

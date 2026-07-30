@@ -4,6 +4,7 @@ import { getApp, getApps, initializeApp } from 'firebase/app';
 import * as FirebaseAuth from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import {
+  getStartupStage,
   recordStartupFailure,
   setStartupStage,
 } from '../diagnostics/startupDiagnostics';
@@ -40,6 +41,7 @@ export let firebaseInitializationError = null;
 let initializationAttempted = false;
 
 function initialiseAuth(app) {
+  setStartupStage('firebase-auth');
   const persistence = Platform.OS === 'web'
     ? FirebaseAuth.browserLocalPersistence
     : (() => {
@@ -69,12 +71,12 @@ export function initializeFirebaseServices() {
 
   initializationAttempted = true;
   firebaseInitializationError = null;
-  setStartupStage('firebase-config');
+  setStartupStage('configuration-check');
 
   if (firebaseConfigurationError) {
     const failure = recordStartupFailure(
       firebaseConfigurationError,
-      'firebase-config',
+      'configuration-check',
       firebaseConfigurationError
     );
     return {
@@ -85,11 +87,12 @@ export function initializeFirebaseServices() {
     };
   }
 
-  setStartupStage('firebase-initialised');
+  setStartupStage('firebase-app');
 
   try {
     firebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
     auth = initialiseAuth(firebaseApp);
+    setStartupStage('firestore');
     db = getFirestore(firebaseApp);
     return {
       app: firebaseApp,
@@ -103,7 +106,7 @@ export function initializeFirebaseServices() {
     firebaseInitializationError = 'Firebase could not initialise on this build.';
     const failure = recordStartupFailure(
       error,
-      'firebase-initialised',
+      getStartupStage(),
       firebaseInitializationError
     );
     return {
@@ -114,4 +117,3 @@ export function initializeFirebaseServices() {
     };
   }
 }
-
