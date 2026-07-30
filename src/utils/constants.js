@@ -40,10 +40,22 @@ export const FONTS = {
   body: undefined,
 };
 
+export const TYPOGRAPHY = {
+  screenTitle: { fontSize: 28, lineHeight: 34, fontWeight: '700' },
+  sectionTitle: { fontSize: 20, lineHeight: 26, fontWeight: '600' },
+  componentTitle: { fontSize: 16, lineHeight: 22, fontWeight: '600' },
+  body: { fontSize: 15, lineHeight: 22, fontWeight: '400' },
+  supporting: { fontSize: 14, lineHeight: 20, fontWeight: '400' },
+  caption: { fontSize: 12, lineHeight: 16, fontWeight: '500' },
+  button: { fontSize: 16, lineHeight: 20, fontWeight: '600' },
+};
+
 export const SIZES = {
   xs: 4,
   sm: 8,
+  compact: 12,
   md: 16,
+  gutter: 20,
   lg: 24,
   xl: 32,
   xxl: 48,
@@ -67,10 +79,10 @@ export const MOTION = {
   distance: {
     entrance: 8,
     reveal: 10,
-    parallax: 18,
+    parallax: 12,
   },
   opacity: {
-    entrance: 0.92,
+    entrance: 0.9,
     reveal: 0.9,
   },
   easing: {
@@ -82,24 +94,23 @@ export const MOTION = {
 // Bloom has one elevation tier. Most surfaces remain flat.
 export const ELEVATION = {
   web: {
-    boxShadow:
-      'rgba(0, 0, 0, 0.02) 0px 0px 0px 1px, rgba(0, 0, 0, 0.04) 0px 2px 6px, rgba(0, 0, 0, 0.10) 0px 4px 8px',
+    boxShadow: 'rgba(0, 0, 0, 0.08) 0px 2px 8px',
   },
   ios: {
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 7,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
   },
   android: {
-    elevation: 3,
+    elevation: 2,
   },
 };
 
 export const WEB_FOCUS = {
   outlineStyle: 'solid',
   outlineWidth: 2,
-  outlineColor: COLORS.ink,
+  outlineColor: COLORS.brand,
   outlineOffset: 2,
 };
 
@@ -187,10 +198,10 @@ export const MOVEMENT_PREFERENCES = [
 ];
 
 export const CYCLE_PHASES = {
-  menstrual: { label: 'Menstrual', description: 'A time to rest and nurture yourself.', color: COLORS.cycle },
-  follicular: { label: 'Follicular', description: 'Your energy is beginning to rise.', color: COLORS.sage },
-  ovulatory: { label: 'Ovulatory', description: 'You may feel social and confident.', color: COLORS.blush },
-  luteal: { label: 'Luteal', description: 'A time to slow down and reflect.', color: COLORS.surfaceWarm },
+  period_days: { label: 'Period days', description: 'A time to notice what your body needs.', color: COLORS.cycle },
+  early_cycle: { label: 'Earlier cycle', description: 'An estimate based on your logged dates.', color: COLORS.sage },
+  mid_cycle: { label: 'Mid-cycle', description: 'An estimate based on your logged dates.', color: COLORS.blush },
+  later_cycle: { label: 'Later cycle', description: 'An estimate based on your logged dates.', color: COLORS.surfaceWarm },
 };
 
 export const LANGUAGES = [

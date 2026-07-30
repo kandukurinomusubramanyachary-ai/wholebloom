@@ -94,7 +94,7 @@ function CycleContext({ state, navigation }) {
       <View style={styles.flex}>
         <Text style={styles.cycleMeta}>Cycle day {state.currentCycleDay || currentLength}</Text>
         <Text style={styles.cycleTitle}>
-          {state.currentPhase ? `${state.currentPhase.label} phase estimate` : 'Your current cycle'}
+          {state.currentPhase ? `${state.currentPhase.label} estimate` : 'Your current cycle'}
         </Text>
         {likelyPeriodRange ? (
           <View style={styles.predictionSummary} accessibilityRole='summary'>
@@ -284,7 +284,7 @@ export default function TodayScreen({ navigation }) {
       <MotionScrollView style={styles.screen} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.inner}>
           <View style={styles.brandRow}>
-            <BrandMark size='small' />
+            <BrandMark size='small' showWordmark={false} />
             <Pressable
               onPress={() => navigation.navigate('Profile')}
               accessibilityRole='button'

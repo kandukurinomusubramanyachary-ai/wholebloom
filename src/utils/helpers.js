@@ -11,11 +11,13 @@ export function getCycleDay(periodStartDate, referenceDate = new Date()) {
 
 export function getCyclePhase(cycleDay, cycleLength = null) {
   if (!cycleDay || !cycleLength || cycleLength < 21) return null;
-  const estimatedOvulation = Math.max(7, cycleLength - 14);
-  if (cycleDay <= 5) return 'menstrual';
-  if (cycleDay < estimatedOvulation - 1) return 'follicular';
-  if (cycleDay <= estimatedOvulation + 1) return 'ovulatory';
-  return 'luteal';
+  if (cycleDay <= 5) return 'period_days';
+  const remainingDays = Math.max(1, cycleLength - 5);
+  const earlyBoundary = 5 + Math.round(remainingDays / 3);
+  const midBoundary = 5 + Math.round((remainingDays * 2) / 3);
+  if (cycleDay <= earlyBoundary) return 'early_cycle';
+  if (cycleDay <= midBoundary) return 'mid_cycle';
+  return 'later_cycle';
 }
 
 export function getPhaseInfo(cycleDay, cycleLength = null) {

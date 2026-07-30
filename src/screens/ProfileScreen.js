@@ -8,6 +8,7 @@ import { COLORS, ELEVATION, LAYOUT } from '../utils/constants';
 import ScreenHeader from '../components/ScreenHeader';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import { LotusMark } from '../components/BrandMark';
 
 export default function ProfileScreen({ navigation }) {
   const { state, resetAllData } = useApp();
@@ -83,8 +84,8 @@ export default function ProfileScreen({ navigation }) {
           <ScreenHeader title='Your space' subtitle='Manage Bloom in a way that feels private and comfortable.' />
 
           <View style={styles.profileRow}>
-            <View style={styles.avatar} accessibilityLabel='Bloom flower mark'>
-              <Ionicons name='flower-outline' size={32} color={COLORS.brand} />
+            <View style={styles.avatar} accessibilityLabel='Bloom lotus mark'>
+              <LotusMark size={32} decorative={false} />
             </View>
             <View style={styles.profileCopy}>
               <Text style={styles.name}>{state.profile?.name || 'Your Bloom'}</Text>

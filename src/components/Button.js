@@ -1,7 +1,7 @@
 import React from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, WEB_FOCUS } from '../utils/constants';
+import { COLORS, TYPOGRAPHY, WEB_FOCUS } from '../utils/constants';
 
 export default function Button({
   title,
@@ -156,9 +156,7 @@ const styles = StyleSheet.create({
     opacity: 0.96,
   },
   text: {
-    fontSize: 16,
-    lineHeight: 20,
-    fontWeight: '600',
+    ...TYPOGRAPHY.button,
   },
   primaryText: {
     color: COLORS.white,

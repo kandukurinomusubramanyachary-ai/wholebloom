@@ -28,7 +28,12 @@ export default function Card({
   accessibilityRole,
   ...viewProps
 }) {
-  const base = [styles.card, variantStyle(variant), elevated && elevationStyle];
+  const base = [
+    styles.card,
+    variantStyle(variant),
+    elevated && styles.elevatedSurface,
+    elevated && elevationStyle,
+  ];
 
   if (!onPress) {
     return (
@@ -45,6 +50,7 @@ export default function Card({
       accessibilityRole={accessibilityRole || 'button'}
       style={(state) => [
         ...base,
+        hoverable && state.hovered && styles.elevatedSurface,
         hoverable && state.hovered && elevationStyle,
         state.focused && styles.focused,
         state.pressed && styles.pressed,
@@ -84,6 +90,9 @@ const styles = StyleSheet.create({
   flat: {
     borderWidth: 0,
   },
+  elevatedSurface: {
+    borderWidth: 0,
+  },
   interactive: Platform.select({
     web: { cursor: 'pointer' },
     default: {},
@@ -94,6 +103,6 @@ const styles = StyleSheet.create({
   }),
   pressed: {
     opacity: 0.97,
-    transform: [{ scale: 0.99 }],
+    transform: [{ scale: 0.98 }],
   },
 });

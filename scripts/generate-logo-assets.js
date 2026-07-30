@@ -4,11 +4,12 @@ const path = require('path');
 const { PNG } = require('pngjs');
 
 const ROOT = path.resolve(__dirname, '..');
-const SOURCE_PATH = path.join(ROOT, 'assets', 'bloom-logo-final.png');
+const SOURCE_PATH = path.join(ROOT, 'assets', 'bloom-logo-approved.png');
 const SOURCE_SHA256 = 'DA9D34D38A5139F1E5FA456856A4D8C6846AA80EF9EA11E29FE71EE0928E9A28';
 const BACKGROUND = [255, 253, 254, 255];
 const TRANSPARENT = [0, 0, 0, 0];
 const LOTUS_CROP = { x: 260, y: 30, width: 406, height: 324 };
+const LOCKUP_CROP = { x: 40, y: 40, width: 846, height: 478 };
 const ADAPTIVE_SAFE_RADIUS = 1024 * 33 / 108;
 
 function assert(condition, message) {
@@ -251,6 +252,24 @@ const adaptiveBounds = boundsFor(adaptive, (data, offset) => data[offset + 3] > 
 assertCentered(adaptiveBounds, adaptive, 'Adaptive icon');
 const adaptiveRadius = assertAdaptiveSafe(adaptive);
 
+const lotusMark = createCanvas(LOTUS_CROP.width, LOTUS_CROP.height, TRANSPARENT);
+drawScaled(lotusMark, source, LOTUS_CROP, {
+  x: 0,
+  y: 0,
+  width: LOTUS_CROP.width,
+  height: LOTUS_CROP.height,
+});
+assertDimensions(lotusMark, 406, 324, 'In-app lotus mark');
+
+const bloomLockup = createCanvas(LOCKUP_CROP.width, LOCKUP_CROP.height, TRANSPARENT);
+drawScaled(bloomLockup, source, LOCKUP_CROP, {
+  x: 0,
+  y: 0,
+  width: LOCKUP_CROP.width,
+  height: LOCKUP_CROP.height,
+});
+assertDimensions(bloomLockup, 846, 478, 'In-app Bloom lockup');
+
 const favicon = createCanvas(64, 64, BACKGROUND);
 drawCenteredLotus(favicon, source, 48);
 assertDimensions(favicon, 64, 64, 'Favicon');
@@ -267,6 +286,8 @@ assertCentered(splashBounds, splash, 'Splash');
 const generated = [
   ['assets/icon.png', icon],
   ['assets/adaptive-icon.png', adaptive],
+  ['assets/lotus-mark.png', lotusMark],
+  ['assets/bloom-lockup.png', bloomLockup],
   ['assets/favicon.png', favicon],
   ['assets/splash.png', splash],
 ];
@@ -288,4 +309,3 @@ console.log(
   + splashBounds.x + ',' + splashBounds.y + ' '
   + splashBounds.width + 'x' + splashBounds.height
 );
-

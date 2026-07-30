@@ -5,7 +5,7 @@
     "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -14,9 +14,19 @@
     "assetBundlePatterns": [
       "**/*"
     ],
+    "androidStatusBar": {
+      "barStyle": "dark-content",
+      "backgroundColor": "#FFFDFE",
+      "translucent": false
+    },
+    "androidNavigationBar": {
+      "barStyle": "dark-content",
+      "backgroundColor": "#FFFDFE"
+    },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.bloom.app",
+      "buildNumber": "1",
       "infoPlist": {
         "NSFaceIDUsageDescription": "Bloom uses Face ID to protect your health data."
       }
@@ -30,8 +40,6 @@
       "package": "com.bloomhealth.app",
       "versionCode": 3,
       "permissions": [
-        "USE_BIOMETRIC",
-        "USE_FINGERPRINT",
         "SCHEDULE_EXACT_ALARM",
         "RECEIVE_BOOT_COMPLETED",
         "android.permission.USE_BIOMETRIC",
@@ -39,7 +47,8 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "Bloom Web Beta"
     },
     "plugins": [
       "expo-splash-screen",

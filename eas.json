@@ -1,6 +1,6 @@
 {
   "cli": {
-   "version": ">=16.23.0",
+    "version": ">=16.23.0",
     "appVersionSource": "local"
   },
   "build": {
@@ -16,6 +16,9 @@
       "distribution": "store",
       "android": {
         "buildType": "app-bundle"
+      },
+      "ios": {
+        "simulator": false
       }
     }
   }
