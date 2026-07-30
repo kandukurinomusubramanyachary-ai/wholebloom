@@ -8,9 +8,8 @@ import {
   subDays,
 } from 'date-fns';
 import { localDateKey } from '../utils/dateKey';
+import { periodRange } from './periodValidation';
 
-const MIN_CYCLE_DAYS = 15;
-const MAX_CYCLE_DAYS = 90;
 const DEFAULT_PERIOD_DAYS = 5;
 
 function toDate(value) {
@@ -45,18 +44,39 @@ function weightedAverage(values) {
 }
 
 export function calculateCyclePattern(periods = []) {
-  const normalized = periods
-    .map((period) => ({
-      ...period,
-      start: toDate(period.startDate),
-      end: toDate(period.endDate),
-    }))
-    .filter((period) => period.start)
+  const source = Array.isArray(periods) ? periods : [];
+  const candidates = source
+    .map((period) => {
+      const range = periodRange(period);
+      return range
+        ? { ...period, start: range.start, end: range.endDate ? range.end : null }
+        : null;
+    })
+    .filter(Boolean)
     .sort((a, b) => a.start - b.start);
+
+  const normalized = candidates.reduce((result, period) => {
+    const previous = result[result.length - 1];
+    if (!previous) return [period];
+
+    if (previous.start.getTime() === period.start.getTime()) {
+      const previousEnd = previous.end?.getTime() || previous.start.getTime();
+      const periodEnd = period.end?.getTime() || period.start.getTime();
+      const preferPeriod = periodEnd > previousEnd
+        || (periodEnd === previousEnd && String(period.id || '').localeCompare(String(previous.id || '')) > 0);
+      return preferPeriod ? [...result.slice(0, -1), period] : result;
+    }
+
+    if (previous.end && !isBefore(previous.end, period.start)) {
+      return [...result.slice(0, -1), period];
+    }
+
+    return [...result, period];
+  }, []);
 
   const cycleLengths = normalized.slice(1).map((period, index) =>
     differenceInCalendarDays(period.start, normalized[index].start)
-  ).filter((days) => days >= MIN_CYCLE_DAYS && days <= MAX_CYCLE_DAYS);
+  ).filter((days) => days > 0);
 
   const periodLengths = normalized.map((period) => {
     if (!period.end || isBefore(period.end, period.start)) return null;
@@ -79,6 +99,7 @@ export function calculateCyclePattern(periods = []) {
     deviation,
     confidence,
     dataPointsUsed: cycleLengths.length,
+    ignoredDataPoints: source.length - normalized.length,
   };
 }
 
@@ -140,6 +161,9 @@ export function predictCycle(periods = [], checkins = [], referenceValue = new D
       note: 'Your recent logged cycles have followed a steadier pattern.',
     },
   }[pattern.confidence];
+  const confidenceNote = pattern.ignoredDataPoints > 0
+    ? `${confidenceCopy.note} Bloom ignored ${pattern.ignoredDataPoints} conflicting or invalid ${pattern.ignoredDataPoints === 1 ? 'log' : 'logs'} in this estimate.`
+    : confidenceCopy.note;
 
   return {
     nextPeriodStart: dateKey(nextPeriodStart),
@@ -150,8 +174,9 @@ export function predictCycle(periods = [], checkins = [], referenceValue = new D
     periodLength: pattern.periodLength,
     confidence: pattern.confidence,
     confidenceLabel: confidenceCopy.label,
-    confidenceNote: confidenceCopy.note,
+    confidenceNote,
     dataPointsUsed: pattern.dataPointsUsed,
+    ignoredDataPoints: pattern.ignoredDataPoints,
     symptomAdjustmentDays: adjustmentDays,
     daysUntilPeriod: differenceInCalendarDays(nextPeriodStart, referenceDate),
   };

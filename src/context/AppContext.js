@@ -20,6 +20,11 @@ import {
 import { buildDailyPlan, updatePlanAction as updatePlanActionValue } from '../services/dailyPlan';
 import { predictCycle } from '../services/cyclePrediction';
 import {
+  assertValidPeriodChange,
+  mergePeriodChange,
+  removePeriodEntry,
+} from '../services/periodValidation';
+import {
   DATA_SCHEMA_VERSION,
   DEFAULT_TRACKING_PREFERENCES,
   normalizeCheckin,
@@ -303,16 +308,29 @@ export function AppProvider({ children }) {
       });
     if (nearby) {
       if (nearby.source !== 'checkin' || nearby.endDate === checkin.date) return state.periods;
-      const saved = normalizePeriod(await saveCurrentUserPeriod({
+      const endDate = nearby.endDate && nearby.endDate > checkin.date
+        ? nearby.endDate
+        : checkin.date;
+      const candidate = {
         ...nearby,
-        endDate: checkin.date,
+        endDate,
         flow: checkin.flow,
-      }));
-      const periods = upsertValue(
-        state.periods,
-        saved,
-        (item) => item.startDate === saved.startDate
-      );
+      };
+      try {
+        assertValidPeriodChange(candidate, state.periods, {
+          previousId: nearby.id,
+          previousStartDate: nearby.startDate,
+        });
+      } catch (error) {
+        return state.periods;
+      }
+      const saved = normalizePeriod(await saveCurrentUserPeriod({
+        ...candidate,
+      }, nearby.startDate));
+      const periods = mergePeriodChange(state.periods, saved, {
+        previousId: nearby.id,
+        previousStartDate: nearby.startDate,
+      });
       dispatch({ type: 'SET_PERIODS', payload: normalizeCollection(periods, normalizePeriod) });
       return periods;
     }
@@ -323,12 +341,13 @@ export function AppProvider({ children }) {
       flow: checkin.flow,
       source: 'checkin',
     });
+    try {
+      assertValidPeriodChange(period, state.periods);
+    } catch (error) {
+      return state.periods;
+    }
     const saved = normalizePeriod(await saveCurrentUserPeriod(period));
-    const periods = upsertValue(
-      state.periods,
-      saved,
-      (item) => item.startDate === saved.startDate
-    );
+    const periods = mergePeriodChange(state.periods, saved);
     dispatch({ type: 'SET_PERIODS', payload: normalizeCollection(periods, normalizePeriod) });
     return periods;
   }
@@ -356,22 +375,23 @@ export function AppProvider({ children }) {
   }
 
   async function savePeriod(period) {
+    const requestedId = period?.id || null;
     const normalized = normalizePeriod(period);
-    const previous = normalized.id
-      ? state.periods.find((item) => item.id === normalized.id)
+    const previous = requestedId
+      ? state.periods.find((item) => item.id === requestedId)
       : null;
     const previousStartDate = previous?.startDate || null;
+    assertValidPeriodChange(normalized, state.periods, {
+      previousId: previous?.id || null,
+      previousStartDate,
+    });
     const saved = normalizePeriod(await persist(
       () => saveCurrentUserPeriod(normalized, previousStartDate)
     ));
-    const withoutMovedRecord = previousStartDate && previousStartDate !== saved.startDate
-      ? state.periods.filter((item) => item.startDate !== previousStartDate)
-      : state.periods;
-    const periods = upsertValue(
-      withoutMovedRecord,
-      saved,
-      (item) => item.startDate === saved.startDate
-    );
+    const periods = mergePeriodChange(state.periods, saved, {
+      previousId: previous?.id || null,
+      previousStartDate,
+    });
     dispatch({ type: 'SET_PERIODS', payload: normalizeCollection(periods, normalizePeriod) });
     return saved;
   }
@@ -382,7 +402,7 @@ export function AppProvider({ children }) {
     );
     const startDate = existing?.startDate || idOrStartDate;
     await persist(() => deleteCurrentUserPeriod(startDate));
-    const periods = state.periods.filter((item) => item.startDate !== startDate);
+    const periods = removePeriodEntry(state.periods, existing?.id || startDate);
     dispatch({ type: 'SET_PERIODS', payload: normalizeCollection(periods, normalizePeriod) });
     return periods;
   }

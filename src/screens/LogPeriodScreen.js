@@ -60,6 +60,7 @@ export default function LogPeriodScreen({ navigation, route }) {
   const [hasChangedOngoing, setHasChangedOngoing] = useState(false);
   const [submittingAction, setSubmittingAction] = useState(null);
   const [formError, setFormError] = useState('');
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const hasValidEndDate = isOngoing || Boolean(
     endDate && !isBefore(parseISO(endDate), parseISO(startDate))
   );
@@ -71,6 +72,7 @@ export default function LogPeriodScreen({ navigation, route }) {
     let saved = false;
     try {
       await savePeriod({
+        ...(existing || {}),
         id: existing?.id,
         startDate,
         endDate: isOngoing ? null : endDate,
@@ -78,11 +80,14 @@ export default function LogPeriodScreen({ navigation, route }) {
       });
       saved = true;
     } catch (error) {
-      setFormError(
-        error?.code === 'period-date-conflict'
-          ? 'A period is already logged for this start date. Choose another date.'
-          : 'Bloom could not save this period. Check your connection and try again.'
-      );
+      const message = {
+        'period-date-conflict': 'A period is already logged for this start date. Choose another date.',
+        'period-overlap': 'These dates overlap another logged period. Adjust the start or end date.',
+        'period-invalid-start': 'Choose a valid period start date.',
+        'period-invalid-end': 'Choose a valid period end date.',
+        'period-invalid-range': 'End date cannot be before the start date.',
+      }[error?.code];
+      setFormError(message || 'Bloom could not save this period. Check your connection and try again.');
     } finally {
       setSubmittingAction(null);
     }
@@ -91,6 +96,7 @@ export default function LogPeriodScreen({ navigation, route }) {
 
   async function handleDelete() {
     if (!existing || submittingAction) return;
+    if (!confirmingDelete) return;
     setSubmittingAction('delete');
     setFormError('');
     let deleted = false;
@@ -259,16 +265,42 @@ export default function LogPeriodScreen({ navigation, route }) {
               loading={submittingAction === 'save'}
               disabled={!hasValidEndDate || Boolean(submittingAction)}
             />
-            {existing ? (
+            {existing && !confirmingDelete ? (
               <Button
                 title='Delete this period'
                 variant='danger'
                 icon='trash-outline'
-                onPress={handleDelete}
-                loading={submittingAction === 'delete'}
+                onPress={() => {
+                  setFormError('');
+                  setConfirmingDelete(true);
+                }}
                 disabled={Boolean(submittingAction)}
                 style={styles.cancelButton}
               />
+            ) : null}
+            {existing && confirmingDelete ? (
+              <View style={styles.deleteConfirmation} accessibilityRole='alert'>
+                <Text style={styles.deleteConfirmationTitle}>Delete this period?</Text>
+                <Text style={styles.deleteConfirmationBody}>
+                  This removes the period dates. Daily check-ins and symptoms stay in your timeline.
+                </Text>
+                <Button
+                  title='Yes, delete period'
+                  variant='danger'
+                  icon='trash-outline'
+                  onPress={handleDelete}
+                  loading={submittingAction === 'delete'}
+                  disabled={Boolean(submittingAction)}
+                  style={styles.deleteConfirmationAction}
+                />
+                <Button
+                  title='Keep period'
+                  variant='secondary'
+                  onPress={() => setConfirmingDelete(false)}
+                  disabled={Boolean(submittingAction)}
+                  style={styles.cancelButton}
+                />
+              </View>
             ) : null}
             <Button
               title='Cancel'
@@ -420,4 +452,15 @@ const styles = StyleSheet.create({
   flowLabelSelected: { color: COLORS.brand, fontWeight: '600' },
   footer: { paddingTop: 8 },
   cancelButton: { marginTop: 10 },
+  deleteConfirmation: {
+    marginTop: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.hairline,
+    borderRadius: LAYOUT.controlRadius,
+    backgroundColor: COLORS.surfaceSoft,
+  },
+  deleteConfirmationTitle: { fontSize: 16, lineHeight: 22, fontWeight: '700', color: COLORS.ink },
+  deleteConfirmationBody: { marginTop: 4, fontSize: 14, lineHeight: 20, color: COLORS.body },
+  deleteConfirmationAction: { marginTop: 14 },
 });

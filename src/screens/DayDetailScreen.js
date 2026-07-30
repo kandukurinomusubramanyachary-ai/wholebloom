@@ -8,6 +8,7 @@ import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { getCycleDay } from '../utils/helpers';
 import Button from '../components/Button';
 import { Entrance } from '../components/Motion';
+import { periodRange } from '../services/periodValidation';
 
 export default function DayDetailScreen({ route, navigation }) {
   const { date } = route.params;
@@ -19,13 +20,18 @@ export default function DayDetailScreen({ route, navigation }) {
   const meals = (state.meals || []).filter(item => item.date === date);
   const movements = (state.movements || []).filter(item => item.date === date);
   const medications = (state.medications || []).filter(item => item.date === date);
-  const period = state.periods.find(p => {
-    const start = parseISO(p.startDate);
-    const daysAgo = differenceInCalendarDays(new Date(), start);
-    const end = p.endDate ? parseISO(p.endDate) : (daysAgo >= 0 && daysAgo <= 10 ? new Date() : start);
-    const selectedDate = parseISO(date);
-    return selectedDate >= start && selectedDate <= end;
-  });
+  const selectedDate = parseISO(date);
+  const period = [...state.periods]
+    .sort((first, second) => String(second?.startDate || '').localeCompare(String(first?.startDate || '')))
+    .find((item) => {
+      const range = periodRange(item);
+      if (!range) return false;
+      const daysAgo = differenceInCalendarDays(new Date(), range.start);
+      const end = item.endDate
+        ? range.end
+        : (daysAgo >= 0 && daysAgo <= 10 ? new Date() : range.start);
+      return selectedDate >= range.start && selectedDate <= end;
+    });
 
   const dateObj = parseISO(date);
   const dayName = format(dateObj, 'EEEE');

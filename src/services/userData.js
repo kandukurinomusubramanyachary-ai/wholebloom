@@ -153,6 +153,7 @@ async function saveDatedRecord(collectionName, date, value) {
 export async function saveCurrentUserPeriod(period, previousStartDate = null) {
   const { uid } = requireCurrentUser();
   const startDate = requireLocalDateKey(period?.startDate, 'period start date');
+  const isEditing = previousStartDate !== null && previousStartDate !== undefined;
   const previousKey = previousStartDate
     ? requireLocalDateKey(previousStartDate, 'previous period start date')
     : startDate;
@@ -168,9 +169,15 @@ export async function saveCurrentUserPeriod(period, previousStartDate = null) {
     delete record.createdAt;
     delete record.updatedAt;
     if (
-      previousKey !== startDate
-      && existing.exists()
-      && existing.data()?.id !== record.id
+      (!isEditing && existing.exists())
+      || (isEditing && previousKey !== startDate && existing.exists())
+      || (
+        isEditing
+        && previousKey === startDate
+        && existing.exists()
+        && existing.data()?.id
+        && existing.data()?.id !== record.id
+      )
     ) {
       const conflict = new Error('A period is already logged for this start date.');
       conflict.code = 'period-date-conflict';
