@@ -1,3 +1,5 @@
+const { MEG_QA_FAILURE_CATEGORY } = require('./megQaTiming');
+
 const DEFAULT_OLLAMA_URL = 'http://127.0.0.1:11434/api/chat';
 const DEFAULT_OLLAMA_MODEL = 'qwen3.5:4b';
 const DEFAULT_TIMEOUT_MS = 90000;
@@ -142,7 +144,7 @@ function createMegProvider(config, { fetchImpl = globalThis.fetch } = {}) {
     id: config.id,
     model: config.model,
     timeoutMs: config.timeoutMs,
-    async chat({ messages, options, signal }) {
+    async chat({ messages, options, signal, qaTiming, qaPhase = 'primary' }) {
       const body = isOllama
         ? {
             model: config.model,
@@ -164,6 +166,8 @@ function createMegProvider(config, { fetchImpl = globalThis.fetch } = {}) {
           };
 
       let providerResponse;
+      const providerStartedAt = qaTiming?.mark();
+      let providerHeadersAt;
       try {
         providerResponse = await fetchImpl(config.endpoint, {
           method: 'POST',
@@ -174,7 +178,18 @@ function createMegProvider(config, { fetchImpl = globalThis.fetch } = {}) {
           body: JSON.stringify(body),
           signal,
         });
+        providerHeadersAt = qaTiming?.mark();
       } catch (error) {
+        if (qaPhase === 'revision') {
+          qaTiming?.recordDuration('revision_provider_total_ms', providerStartedAt);
+        } else {
+          qaTiming?.recordDuration('provider_total_ms', providerStartedAt);
+          qaTiming?.setFailure(
+            error?.name === 'AbortError'
+              ? MEG_QA_FAILURE_CATEGORY.PROVIDER_TIMEOUT
+              : MEG_QA_FAILURE_CATEGORY.NETWORK
+          );
+        }
         if (error?.name === 'AbortError') throw error;
         throw new MegProviderError(
           'upstream_unavailable',
@@ -184,8 +199,33 @@ function createMegProvider(config, { fetchImpl = globalThis.fetch } = {}) {
         );
       }
 
-      const payload = await providerResponse.json().catch(() => ({}));
+      let payloadParseFailed = false;
+      const payload = await providerResponse.json().catch(() => {
+        payloadParseFailed = true;
+        return {};
+      });
+      const providerBodyAt = qaTiming?.mark();
+      if (qaPhase === 'revision') {
+        qaTiming?.recordDuration(
+          'revision_provider_total_ms',
+          providerStartedAt,
+          providerBodyAt
+        );
+      } else {
+        qaTiming?.recordDuration('provider_headers_ms', providerStartedAt, providerHeadersAt);
+        qaTiming?.recordDuration('provider_body_ms', providerHeadersAt, providerBodyAt);
+        qaTiming?.recordDuration('provider_total_ms', providerStartedAt, providerBodyAt);
+      }
       if (!providerResponse.ok) {
+        if (qaPhase === 'primary') {
+          qaTiming?.setFailure(
+            providerResponse.status >= 400 && providerResponse.status < 500
+              ? MEG_QA_FAILURE_CATEGORY.PROVIDER_4XX
+              : providerResponse.status >= 500
+                ? MEG_QA_FAILURE_CATEGORY.PROVIDER_5XX
+                : MEG_QA_FAILURE_CATEGORY.UNKNOWN
+          );
+        }
         const providerDetail = isOllama && typeof payload?.error === 'string'
           ? payload.error
           : '';
@@ -198,10 +238,17 @@ function createMegProvider(config, { fetchImpl = globalThis.fetch } = {}) {
         );
       }
 
+      if (payloadParseFailed && qaPhase === 'primary') {
+        qaTiming?.setFailure(MEG_QA_FAILURE_CATEGORY.PARSE);
+      }
+
       const content = isOllama
         ? payload?.message?.content
         : payload?.choices?.[0]?.message?.content;
       if (typeof content !== 'string' || !content.trim()) {
+        if (qaPhase === 'primary') {
+          qaTiming?.setFailure(MEG_QA_FAILURE_CATEGORY.PARSE);
+        }
         throw new MegProviderError(
           'empty_response',
           isOllama

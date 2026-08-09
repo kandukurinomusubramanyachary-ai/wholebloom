@@ -1,4 +1,5 @@
 require('./megBackend.test');
+require('./megQaTiming.test');
 require('./megUrlPolicy.test');
 require('./megLocalQueue.test');
 require('./betaAccess.test');

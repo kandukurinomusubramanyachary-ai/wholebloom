@@ -1,4 +1,5 @@
 import { auth } from './firebase';
+import { MEG_QA_FAILURE_CATEGORY } from './megQaTiming';
 const { resolveMegApiBaseUrl } = require('./megUrlPolicy');
 
 const MODE_IDS = {
@@ -449,41 +450,81 @@ export function createLocalMegApiProvider({
     id: 'ollama-local',
     kind: 'local-api',
     async reply(request) {
+      const qaTiming = request?.qaTiming;
       const message = normalizeText(request?.message);
       const currentUser = auth?.currentUser;
       if (!currentUser) {
+        qaTiming?.setFailure(MEG_QA_FAILURE_CATEGORY.AUTH);
         throw new Error('Please sign in before messaging Meg.');
       }
-      const idToken = await currentUser.getIdToken();
+      const tokenStartedAt = qaTiming?.mark();
+      let idToken;
+      try {
+        idToken = await currentUser.getIdToken();
+        qaTiming?.recordDuration('client_token_acquisition_ms', tokenStartedAt);
+      } catch (error) {
+        qaTiming?.recordDuration('client_token_acquisition_ms', tokenStartedAt);
+        qaTiming?.setFailure(MEG_QA_FAILURE_CATEGORY.AUTH);
+        throw error;
+      }
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
       try {
-        const response = await fetch(`${baseUrl}/api/meg/chat`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
-          },
-          body: JSON.stringify({
-            message,
-            conversationId: request?.conversationId,
-            messageId: request?.messageId,
-            mode: request?.mode || null,
-            supportMode: request?.supportMode || request?.mode || null,
-            language: request?.language || 'en',
-            history: apiHistory(
-              [...(request?.memory || []), ...(request?.history || [])],
-              message
-            ),
-          }),
-          signal: controller.signal,
+        const httpStartedAt = qaTiming?.mark();
+        let response;
+        try {
+          response = await fetch(`${baseUrl}/api/meg/chat`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${idToken}`,
+              ...(qaTiming ? { 'x-meg-trace-id': qaTiming.traceId } : {}),
+            },
+            body: JSON.stringify({
+              message,
+              conversationId: request?.conversationId,
+              messageId: request?.messageId,
+              mode: request?.mode || null,
+              supportMode: request?.supportMode || request?.mode || null,
+              language: request?.language || 'en',
+              history: apiHistory(
+                [...(request?.memory || []), ...(request?.history || [])],
+                message
+              ),
+            }),
+            signal: controller.signal,
+          });
+        } catch (error) {
+          qaTiming?.recordDuration('client_http_total_ms', httpStartedAt);
+          qaTiming?.setFailure(
+            error?.name === 'AbortError'
+              ? MEG_QA_FAILURE_CATEGORY.PROVIDER_TIMEOUT
+              : MEG_QA_FAILURE_CATEGORY.NETWORK
+          );
+          throw error;
+        }
+        qaTiming?.setStatus(response.status);
+        if (response.status === 401) {
+          qaTiming?.setFailure(MEG_QA_FAILURE_CATEGORY.AUTH);
+        } else if (response.status === 504) {
+          qaTiming?.setFailure(MEG_QA_FAILURE_CATEGORY.PROVIDER_TIMEOUT);
+        }
+        const payload = await response.json().catch(() => {
+          qaTiming?.setFailure(MEG_QA_FAILURE_CATEGORY.PARSE);
+          return {};
         });
-        const payload = await response.json().catch(() => ({}));
+        qaTiming?.recordDuration('client_http_total_ms', httpStartedAt);
         if (!response.ok) {
+          qaTiming?.setFailure(
+            response.status === 401
+              ? MEG_QA_FAILURE_CATEGORY.AUTH
+              : MEG_QA_FAILURE_CATEGORY.UNKNOWN
+          );
           throw new Error(payload?.error || `Local Meg service returned ${response.status}.`);
         }
         if (typeof payload?.message !== 'string' || !payload.message.trim()) {
+          qaTiming?.setFailure(MEG_QA_FAILURE_CATEGORY.PARSE);
           throw new Error('Local Meg service returned an empty response.');
         }
         return {

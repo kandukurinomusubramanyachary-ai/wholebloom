@@ -23,6 +23,7 @@ import {
   describeMegContext,
   megService,
 } from '../services/meg';
+import { createClientMegQaTiming } from '../services/megQaTiming';
 import {
   recoverableMegRequest,
   setMegMessageDelivery,
@@ -505,7 +506,7 @@ export default function MegScreen({ route }) {
     setVisibleMessageCount(INITIAL_MESSAGE_COUNT);
   }
 
-  async function persistConversation(id, nextMessages, mode) {
+  async function persistConversation(id, nextMessages, mode, qaTiming) {
     const existing = conversations.find((conversation) => conversation.id === id);
     const now = new Date().toISOString();
     const firstUserMessage = nextMessages.find((message) => message.role === 'user');
@@ -519,10 +520,15 @@ export default function MegScreen({ route }) {
       messages: nextMessages,
     };
 
-    await saveMegConversation(conversation);
+    const persistStartedAt = qaTiming?.mark();
+    try {
+      await saveMegConversation(conversation);
+    } finally {
+      qaTiming?.recordLocalPersist(persistStartedAt);
+    }
   }
 
-  async function requestReply(request) {
+  async function requestReply(request, qaTiming = createClientMegQaTiming()) {
     const pendingMessages = setMegMessageDelivery(
       request.baseMessages,
       request.messageId,
@@ -539,7 +545,8 @@ export default function MegScreen({ route }) {
       await persistConversation(
         request.conversationId,
         pendingMessages,
-        request.mode
+        request.mode,
+        qaTiming
       );
     } catch {
       setNotice('Your message is still here on this device.');
@@ -559,6 +566,7 @@ export default function MegScreen({ route }) {
         context,
         history: pendingMessages,
         memory,
+        ...(qaTiming ? { qaTiming } : {}),
       });
       const resolvedConversationId = result.conversationId || request.conversationId;
       const assistantMessage = {
@@ -577,12 +585,21 @@ export default function MegScreen({ route }) {
       const nextMessages = [...sentMessages, assistantMessage];
       setCurrentConversationId(resolvedConversationId);
       setMessages(nextMessages);
+      if (qaTiming) {
+        requestAnimationFrame(() => qaTiming.markVisibleReply());
+      }
 
       try {
-        await persistConversation(resolvedConversationId, nextMessages, request.mode);
+        await persistConversation(
+          resolvedConversationId,
+          nextMessages,
+          request.mode,
+          qaTiming
+        );
       } catch (saveError) {
         setNotice('Meg replied, but this screen could not refresh the conversation summary.');
       }
+      qaTiming?.completeSuccess();
     } catch (requestError) {
       const failedMessages = setMegMessageDelivery(
         pendingMessages,
@@ -600,11 +617,13 @@ export default function MegScreen({ route }) {
         await persistConversation(
           request.conversationId,
           failedMessages,
-          request.mode
+          request.mode,
+          qaTiming
         );
       } catch {
         setNotice('Your message remains visible, but Bloom could not save the retry state.');
       }
+      qaTiming?.completeFailure();
     } finally {
       setTyping(false);
       if (Platform.OS === 'web') {
@@ -617,6 +636,7 @@ export default function MegScreen({ route }) {
     const messageText = String(overrideText ?? input).trim();
     if (!messageText || typing || sendLockRef.current) return;
     sendLockRef.current = true;
+    const qaTiming = createClientMegQaTiming();
 
     const mode = overrideMode || selectedMode || null;
     const conversationId = currentConversationId || createId('meg-conversation');
@@ -638,7 +658,7 @@ export default function MegScreen({ route }) {
 
     try {
       try {
-        await persistConversation(conversationId, baseMessages, mode);
+        await persistConversation(conversationId, baseMessages, mode, qaTiming);
       } catch (saveError) {
         setNotice('Your message is still here. Bloom will keep trying to save the conversation.');
       }
@@ -648,7 +668,7 @@ export default function MegScreen({ route }) {
         mode,
         conversationId,
         baseMessages,
-      });
+      }, qaTiming);
     } finally {
       sendLockRef.current = false;
     }

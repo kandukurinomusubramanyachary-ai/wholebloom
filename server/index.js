@@ -15,6 +15,11 @@ const {
   MegPersistenceError,
   createMegPersistence,
 } = require('./megPersistence');
+const {
+  MEG_QA_FAILURE_CATEGORY,
+  createServerMegQaTiming,
+  isMegQaTimingEnabled,
+} = require('./megQaTiming');
 const { safeLogger } = require('./safeLogger');
 
 const DEFAULT_PORT = 3001;
@@ -183,6 +188,7 @@ function createApp({
   allowedOrigins = resolveAllowedOrigins(),
   buildStatus = resolveBuildStatus(),
   logger = safeLogger,
+  megQaTimingEnabled = isMegQaTimingEnabled(),
 } = {}) {
   if (!megProvider || typeof megProvider.chat !== 'function') {
     throw new Error('A configured Meg provider is required.');
@@ -199,6 +205,23 @@ function createApp({
   const originAllowlist = new Set(allowedOrigins);
   const requireFirebaseAuth = createRequireFirebaseAuth({ verifyIdToken, logger });
 
+  if (megQaTimingEnabled) {
+    app.use((request, response, next) => {
+      if (request.method !== 'POST' || request.path !== '/api/meg/chat') return next();
+
+      const timing = createServerMegQaTiming({
+        enabled: true,
+        requestedTraceId: request.get('x-meg-trace-id'),
+      });
+      request.megQaTiming = timing;
+      response.once('finish', () => timing.finish(response.statusCode));
+      response.once('close', () => {
+        if (!response.writableEnded) timing.finish(0);
+      });
+      return next();
+    });
+  }
+
   app.use((request, response, next) => {
     response.vary('Origin');
     const origin = cleanOrigin(request.get('origin'));
@@ -211,7 +234,12 @@ function createApp({
       return response.status(403).json({ error: 'Origin is not allowed.' });
     }
     if (origin) response.setHeader('Access-Control-Allow-Origin', origin);
-    response.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+    response.setHeader(
+      'Access-Control-Allow-Headers',
+      megQaTimingEnabled
+        ? 'Authorization, Content-Type, X-Meg-Trace-Id'
+        : 'Authorization, Content-Type'
+    );
     response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
     response.setHeader('Access-Control-Max-Age', '600');
     if (request.method === 'OPTIONS') return response.sendStatus(204);
@@ -256,6 +284,7 @@ function createApp({
     }
 
     let userPersistence;
+    const userPersistStartedAt = request.megQaTiming?.mark();
     try {
       userPersistence = await megPersistence.persistUserMessage({
         uid: request.auth.uid,
@@ -266,6 +295,7 @@ function createApp({
         language,
       });
     } catch (error) {
+      request.megQaTiming?.setFailure(MEG_QA_FAILURE_CATEGORY.PERSISTENCE);
       const known = error instanceof MegPersistenceError;
       logger.error('meg_user_message_persist_failed', {
         code: error?.code || error?.name || 'unknown',
@@ -276,6 +306,8 @@ function createApp({
           ? error.clientMessage
           : 'Meg could not save this message. Please try again.',
       });
+    } finally {
+      request.megQaTiming?.recordDuration('user_msg_persist_ms', userPersistStartedAt);
     }
 
     if (userPersistence?.completedAssistantText) {
@@ -300,10 +332,14 @@ function createApp({
           { role: 'user', content: userMessage },
         ],
         signal: controller.signal,
+        ...(request.megQaTiming
+          ? { qaTiming: request.megQaTiming, qaPhase: 'primary' }
+          : {}),
       });
 
       const rewriteRequest = revisionInstruction(userMessage, content);
       if (rewriteRequest) {
+        request.megQaTiming?.setRevisionTriggered(1);
         try {
           content = await megProvider.chat({
             options: { temperature: 0.1, num_predict: 256 },
@@ -313,6 +349,9 @@ function createApp({
               { role: 'user', content: rewriteRequest },
             ],
             signal: controller.signal,
+            ...(request.megQaTiming
+              ? { qaTiming: request.megQaTiming, qaPhase: 'revision' }
+              : {}),
           });
         } catch (revisionError) {
           if (
@@ -330,14 +369,26 @@ function createApp({
       }
 
       content = enforceSingleQuestion(content);
-      const savedAssistant = await megPersistence.persistAssistantMessage({
-        uid: request.auth.uid,
-        conversationId,
-        messageId,
-        text: content,
-        source: megProvider.id,
-        safety: detectMegSafetyFlag(userMessage),
-      });
+      const assistantPersistStartedAt = request.megQaTiming?.mark();
+      let savedAssistant;
+      try {
+        savedAssistant = await megPersistence.persistAssistantMessage({
+          uid: request.auth.uid,
+          conversationId,
+          messageId,
+          text: content,
+          source: megProvider.id,
+          safety: detectMegSafetyFlag(userMessage),
+        });
+      } catch (error) {
+        request.megQaTiming?.setFailure(MEG_QA_FAILURE_CATEGORY.PERSISTENCE);
+        throw error;
+      } finally {
+        request.megQaTiming?.recordDuration(
+          'assistant_msg_persist_ms',
+          assistantPersistStartedAt
+        );
+      }
       return response.json({
         message: savedAssistant.text,
         conversationId: savedAssistant.conversationId,
@@ -347,6 +398,7 @@ function createApp({
       });
     } catch (error) {
       if (error?.name === 'AbortError') {
+        request.megQaTiming?.setFailure(MEG_QA_FAILURE_CATEGORY.PROVIDER_TIMEOUT);
         logger.warn('meg_provider_timeout', {
           code: 'provider_timeout',
           provider: megProvider.id,
@@ -357,6 +409,7 @@ function createApp({
         });
       }
       if (error instanceof MegPersistenceError) {
+        request.megQaTiming?.setFailure(MEG_QA_FAILURE_CATEGORY.PERSISTENCE);
         logger.error('meg_assistant_message_persist_failed', {
           code: error.code,
           status: error.status,
@@ -364,6 +417,13 @@ function createApp({
         return response.status(error.status).json({ error: error.clientMessage });
       }
       if (error instanceof MegProviderError) {
+        request.megQaTiming?.setFailure(
+          error.code === 'upstream_unavailable'
+            ? MEG_QA_FAILURE_CATEGORY.NETWORK
+            : error.code === 'empty_response'
+              ? MEG_QA_FAILURE_CATEGORY.PARSE
+              : MEG_QA_FAILURE_CATEGORY.UNKNOWN
+        );
         const status = providerErrorStatus(error);
         logger.warn('meg_provider_failed', {
           code: error.code,
@@ -372,6 +432,7 @@ function createApp({
         });
         return response.status(status).json({ error: error.clientMessage });
       }
+      request.megQaTiming?.setFailure(MEG_QA_FAILURE_CATEGORY.UNKNOWN);
       logger.error('meg_request_failed', {
         code: error?.code || error?.name || 'unknown',
         status: 503,
@@ -384,10 +445,12 @@ function createApp({
     }
   });
 
-  app.use((error, _request, response, _next) => {
+  app.use((error, request, response, _next) => {
     if (error instanceof SyntaxError) {
+      request.megQaTiming?.setFailure(MEG_QA_FAILURE_CATEGORY.PARSE);
       return response.status(400).json({ error: 'Request body must be valid JSON.' });
     }
+    request.megQaTiming?.setFailure(MEG_QA_FAILURE_CATEGORY.UNKNOWN);
     logger.error('meg_server_error', {
       code: error?.code || error?.name || 'unknown',
       status: 500,
