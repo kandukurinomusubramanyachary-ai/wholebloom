@@ -1,5 +1,7 @@
-export const COLORS = {
-  canvas: '#FFFFFF',
+import { StyleSheet } from 'react-native';
+
+export const LIGHT_COLORS = Object.freeze({
+  canvas: '#FFFEFF',
   splash: '#FFFDFE',
   surfaceSoft: '#F7F7F5',
   surfaceStrong: '#F1F1EE',
@@ -21,7 +23,7 @@ export const COLORS = {
   hairline: '#E5E5E2',
   hairlineSoft: '#EFEFEC',
   borderStrong: '#B9B9B4',
-  ivory: '#FFFFFF',
+  ivory: '#FEFCFD',
   terracotta: '#B52F50',
   terracottaLight: '#C0755A',
   charcoal: '#222222',
@@ -33,7 +35,144 @@ export const COLORS = {
   success: '#60745C',
   warning: '#9A651E',
   error: '#B42318',
-};
+});
+
+export const DARK_COLORS = Object.freeze({
+  canvas: '#121113',
+  splash: '#0F0E10',
+  surfaceSoft: '#1B191C',
+  surfaceStrong: '#242126',
+  surfaceWarm: '#23191C',
+  logo: '#FF6B84',
+  logoInk: '#F8F4F5',
+  logoSoft: 'rgba(255, 107, 132, 0.14)',
+  brand: '#EE718B',
+  brandHover: '#F17F96',
+  brandActive: '#D95D78',
+  brandSoft: '#321C23',
+  cycle: '#D78A70',
+  sage: '#9DB296',
+  sageLight: '#1E2920',
+  blush: '#342328',
+  ink: '#F7F4F5',
+  body: '#DED8DB',
+  muted: '#B7AFB3',
+  hairline: '#343035',
+  hairlineSoft: '#29262A',
+  borderStrong: '#514A50',
+  ivory: '#1A181B',
+  terracotta: '#EE718B',
+  terracottaLight: '#D78A70',
+  charcoal: '#F7F4F5',
+  charcoalLight: '#DED8DB',
+  cream: '#1B191C',
+  white: '#1A181B',
+  gray: '#B7AFB3',
+  lightGray: '#343035',
+  success: '#9DB296',
+  warning: '#F0B45C',
+  error: '#FF8B81',
+});
+
+const THEME_NAMES = new Set(['light', 'dark']);
+let activeTheme = 'light';
+
+export function cleanThemePreference(value) {
+  return THEME_NAMES.has(value) ? value : 'light';
+}
+
+export function setActiveTheme(value) {
+  activeTheme = cleanThemePreference(value);
+}
+
+export function getActiveTheme() {
+  return activeTheme;
+}
+
+export const COLORS = new Proxy({}, {
+  get(_target, property) {
+    const palette = activeTheme === 'dark' ? DARK_COLORS : LIGHT_COLORS;
+    return palette[property];
+  },
+  ownKeys() {
+    return Reflect.ownKeys(LIGHT_COLORS);
+  },
+  getOwnPropertyDescriptor(_target, property) {
+    if (!Object.hasOwn(LIGHT_COLORS, property)) return undefined;
+    return { enumerable: true, configurable: true };
+  },
+});
+
+const HARD_CODED_DARK_EQUIVALENTS = Object.freeze({
+  '#D2D2CE': '#464147',
+  '#D6E0D2': '#344036',
+  '#D7B1A5': '#6B454E',
+  '#D8B2A6': '#6B454E',
+  '#DCA9A2': '#71444A',
+  '#DDAEA7': '#70464B',
+  '#E8C8C4': '#623C42',
+  '#EEEAE7': '#29262A',
+  '#FBEAE7': '#321C20',
+  '#FCEBE8': '#321C20',
+  '#FCEDEB': '#2D1B1F',
+  '#FDF1EF': '#2D1B1F',
+  '#FDF4F2': '#2A1A1D',
+  '#FFF2F0': '#2D1B1F',
+  '#FFF7F6': '#2A1A1D',
+  'rgba(247,247,245,0.68)': 'rgba(255,255,255,0.06)',
+  'rgba(255,255,255,0.42)': 'rgba(255,255,255,0.07)',
+  'rgba(255,255,255,0.68)': 'rgba(255,255,255,0.10)',
+});
+
+const DARK_COLOR_BY_LIGHT = Object.freeze({
+  ...Object.fromEntries(
+    Object.keys(LIGHT_COLORS).map((key) => [LIGHT_COLORS[key], DARK_COLORS[key]])
+  ),
+  ...HARD_CODED_DARK_EQUIVALENTS,
+});
+
+const LIGHT_COLOR_BY_DARK = Object.freeze(Object.fromEntries(
+  Object.entries(DARK_COLOR_BY_LIGHT).map(([light, dark]) => [dark, light])
+));
+
+function themedValue(value, equivalents, property) {
+  if (Array.isArray(value)) {
+    return value.map((item) => themedValue(item, equivalents));
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [
+        key,
+        themedValue(item, equivalents, key),
+      ])
+    );
+  }
+  if (property === 'shadowColor') return '#000000';
+  return typeof value === 'string' && equivalents[value]
+    ? equivalents[value]
+    : value;
+}
+
+export function createThemedStyles(definitions) {
+  const lightStyles = StyleSheet.create(themedValue(definitions, LIGHT_COLOR_BY_DARK));
+  const darkStyles = StyleSheet.create(themedValue(definitions, DARK_COLOR_BY_LIGHT));
+  return new Proxy({}, {
+    get(_target, property) {
+      return (activeTheme === 'dark' ? darkStyles : lightStyles)[property];
+    },
+    has(_target, property) {
+      return property in (activeTheme === 'dark' ? darkStyles : lightStyles);
+    },
+    ownKeys() {
+      return Reflect.ownKeys(activeTheme === 'dark' ? darkStyles : lightStyles);
+    },
+    getOwnPropertyDescriptor(_target, property) {
+      const styles = activeTheme === 'dark' ? darkStyles : lightStyles;
+      if (!Object.hasOwn(styles, property)) return undefined;
+      return { enumerable: true, configurable: true, value: styles[property] };
+    },
+  });
+}
 
 export const FONTS = {
   display: undefined,
@@ -198,10 +337,10 @@ export const MOVEMENT_PREFERENCES = [
 ];
 
 export const CYCLE_PHASES = {
-  period_days: { label: 'Period days', description: 'A time to notice what your body needs.', color: COLORS.cycle },
-  early_cycle: { label: 'Earlier cycle', description: 'An estimate based on your logged dates.', color: COLORS.sage },
-  mid_cycle: { label: 'Mid-cycle', description: 'An estimate based on your logged dates.', color: COLORS.blush },
-  later_cycle: { label: 'Later cycle', description: 'An estimate based on your logged dates.', color: COLORS.surfaceWarm },
+  period_days: { label: 'Period days', description: 'A time to notice what your body needs.', get color() { return COLORS.cycle; } },
+  early_cycle: { label: 'Earlier cycle', description: 'An estimate based on your logged dates.', get color() { return COLORS.sage; } },
+  mid_cycle: { label: 'Mid-cycle', description: 'An estimate based on your logged dates.', get color() { return COLORS.blush; } },
+  later_cycle: { label: 'Later cycle', description: 'An estimate based on your logged dates.', get color() { return COLORS.surfaceWarm; } },
 };
 
 export const LANGUAGES = [

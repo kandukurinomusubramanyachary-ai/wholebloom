@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
-import { COLORS, ELEVATION, LAYOUT } from '../utils/constants';
+import { COLORS, createThemedStyles, ELEVATION, LAYOUT } from '../utils/constants';
 import ScreenHeader from '../components/ScreenHeader';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -21,6 +21,7 @@ export default function ProfileScreen({ navigation }) {
   const [deleteError, setDeleteError] = useState('');
   const trackingMode = state.settings?.trackingMode || state.profile?.trackingMode || 'cycle';
   const modeLabel = trackingMode === 'pcos' ? 'PCOS support mode' : 'Basic cycle mode';
+  const themeLabel = state.resolvedTheme === 'dark' ? 'Dark theme' : 'Light theme';
   const movementDays = state.stats?.movementDays ?? new Set(
     (state.movements || [])
       .filter((item) => item.status !== 'not_today')
@@ -47,7 +48,7 @@ export default function ProfileScreen({ navigation }) {
       title: 'Your preferences',
       items: [
         { icon: 'notifications-outline', title: 'Reminders', subtitle: 'Choose when Bloom gently checks in', route: 'Reminders' },
-        { icon: 'options-outline', title: 'Personalisation', subtitle: `${modeLabel}, goals and guidance`, route: 'Preferences' },
+        { icon: 'options-outline', title: 'Personalisation', subtitle: `${themeLabel}, ${modeLabel.toLowerCase()}, goals and guidance`, route: 'Preferences' },
       ],
     },
   ];
@@ -247,7 +248,7 @@ export default function ProfileScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   safeArea: { flex: 1, backgroundColor: COLORS.canvas },
   screen: { flex: 1, backgroundColor: COLORS.canvas },
   scrollContent: { paddingBottom: 40 },

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { COLORS } from '../utils/constants';
+import { COLORS, createThemedStyles } from '../utils/constants';
 import { Entrance } from './Motion';
 
 export default function ScreenHeader({
@@ -28,7 +28,7 @@ export default function ScreenHeader({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',

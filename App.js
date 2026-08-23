@@ -1,13 +1,24 @@
 import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AppProvider } from './src/context/AppContext';
+import { AppProvider, useApp } from './src/context/AppContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import RootNavigator from './src/navigation/RootNavigator';
 import AuthScreen from './src/screens/AuthScreen';
 import SplashScreen from './src/screens/SplashScreen';
 import StartupDiagnosticScreen from './src/components/StartupDiagnosticScreen';
 import { markStartupReady } from './src/diagnostics/startupDiagnostics';
+import { setActiveTheme } from './src/utils/constants';
+
+function AuthenticatedBloom() {
+  const { state } = useApp();
+  return (
+    <>
+      <StatusBar style={state.resolvedTheme === 'dark' ? 'light' : 'dark'} />
+      <RootNavigator />
+    </>
+  );
+}
 
 function BloomEntry() {
   const {
@@ -16,6 +27,8 @@ function BloomEntry() {
     retryStartup,
     startupFailure,
   } = useAuth();
+
+  if (!user) setActiveTheme('light');
 
   useEffect(() => {
     if (!initializing && !user && !startupFailure) {
@@ -52,8 +65,7 @@ function BloomEntry() {
 
   return (
     <AppProvider key={user.uid}>
-      <StatusBar style='dark' />
-      <RootNavigator />
+      <AuthenticatedBloom />
     </AppProvider>
   );
 }

@@ -3,7 +3,7 @@ import { Animated, Easing, Keyboard, Platform, Pressable, StyleSheet, Text, View
 import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS } from '../utils/constants';
+import { COLORS, createThemedStyles } from '../utils/constants';
 import { useReducedMotion } from '../components/Motion';
 import { LotusMark } from '../components/BrandMark';
 import TodayScreen from '../screens/TodayScreen';
@@ -178,7 +178,7 @@ export default function MainTabNavigator() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   scene: { backgroundColor: COLORS.canvas },
   tabBarFrame: {
     width: '100%',

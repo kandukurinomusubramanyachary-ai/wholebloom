@@ -21,7 +21,7 @@ import {
 } from 'date-fns';
 import { useApp } from '../context/AppContext';
 import { localDateKey } from '../utils/dateKey';
-import { COLORS } from '../utils/constants';
+import { COLORS, createThemedStyles } from '../utils/constants';
 import { MotionScrollView, ScrollReveal, useReducedMotion } from '../components/Motion';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -719,7 +719,7 @@ export default function TimelineScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.surfaceWarm,

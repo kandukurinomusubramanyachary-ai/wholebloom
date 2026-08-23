@@ -21,6 +21,12 @@ const {
   isMegQaTimingEnabled,
 } = require('./megQaTiming');
 const { safeLogger } = require('./safeLogger');
+const {
+  MegContextValidationError,
+  buildUserContextBlock,
+  cleanMegContext,
+} = require('./megContext');
+const { buildModeInstruction, cleanMegMode } = require('./megModes');
 
 const DEFAULT_PORT = 3001;
 const DEFAULT_HOST = '127.0.0.1';
@@ -263,8 +269,9 @@ function createApp({
       conversationId,
       messageId,
       language,
+      context: receivedContext,
     } = request.body || {};
-    const mode = request.body?.mode ?? request.body?.supportMode;
+    const mode = cleanMegMode(request.body?.mode ?? request.body?.supportMode);
     if (typeof message !== 'string' || !message.trim()) {
       return response.status(400).json({ error: 'message must be a non-empty string' });
     }
@@ -277,11 +284,22 @@ function createApp({
     }
 
     let recentHistory;
+    let context;
     try {
       recentHistory = cleanHistory(history);
+      context = cleanMegContext(receivedContext);
     } catch (validationError) {
-      return response.status(400).json({ error: validationError.message });
+      const error = validationError instanceof MegContextValidationError
+        ? 'context contains an invalid value'
+        : validationError.message;
+      return response.status(400).json({ error });
     }
+    const modeInstruction = buildModeInstruction(mode);
+    const contextBlock = buildUserContextBlock(context);
+    const injectedSystemMessages = [
+      ...(modeInstruction ? [{ role: 'system', content: modeInstruction }] : []),
+      ...(contextBlock ? [{ role: 'system', content: contextBlock }] : []),
+    ];
 
     let userPersistence;
     const userPersistStartedAt = request.megQaTiming?.mark();
@@ -328,6 +346,7 @@ function createApp({
       let content = await megProvider.chat({
         messages: [
           { role: 'system', content: MEG_SYSTEM_PROMPT },
+          ...injectedSystemMessages,
           ...recentHistory,
           { role: 'user', content: userMessage },
         ],
@@ -345,6 +364,7 @@ function createApp({
             options: { temperature: 0.1, num_predict: 256 },
             messages: [
               { role: 'system', content: MEG_SYSTEM_PROMPT },
+              ...injectedSystemMessages,
               ...recentHistory,
               { role: 'user', content: rewriteRequest },
             ],

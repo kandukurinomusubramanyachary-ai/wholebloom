@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { format, isValid, parseISO } from 'date-fns';
 import { useApp } from '../context/AppContext';
-import { COLORS, FLOW_LEVELS, LAYOUT, MOODS, SYMPTOMS } from '../utils/constants';
+import { COLORS, createThemedStyles, FLOW_LEVELS, LAYOUT, MOODS, SYMPTOMS } from '../utils/constants';
 import { getCycleDay } from '../utils/helpers';
 import { localDateKey } from '../utils/dateKey';
 import Button from '../components/Button';
@@ -770,7 +770,7 @@ export default function DailyCheckInScreen({ route, navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   safeArea: {
     flex: 1,
     minHeight: 0,

@@ -137,11 +137,78 @@ const MOOD_LABELS = {
 };
 
 const FLOW_LABELS = {
+  none: 'no bleeding',
   spotting: 'spotting',
   light: 'light bleeding',
   medium: 'medium bleeding',
   heavy: 'heavy bleeding',
 };
+
+const MAX_CONTEXT_GOALS = 10;
+const MAX_CONTEXT_STRING_LENGTH = 60;
+const MAX_CONTEXT_PHASE_LENGTH = 40;
+const MAX_CONTEXT_MEALS_LOGGED = 20;
+const CONTEXT_FLOWS = new Set(['none', 'spotting', 'light', 'medium', 'heavy']);
+const CONTEXT_TRACKING_MODES = new Set(['cycle', 'pcos']);
+
+export function cleanMegContextForRequest(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const cleaned = {};
+  const numberInRange = (candidate, minimum, maximum, integer = false) => (
+    typeof candidate === 'number'
+    && Number.isFinite(candidate)
+    && candidate >= minimum
+    && candidate <= maximum
+    && (!integer || Number.isInteger(candidate))
+      ? candidate
+      : null
+  );
+  const shortString = (candidate, maxLength) => {
+    if (typeof candidate !== 'string') return null;
+    const normalized = candidate.trim();
+    return normalized && normalized.length <= maxLength ? normalized : null;
+  };
+
+  const cycleDay = numberInRange(value.cycleDay, 1, 500, true);
+  const averageCycleLength = numberInRange(value.averageCycleLength, 10, 120);
+  const currentPhase = shortString(value.currentPhase, MAX_CONTEXT_PHASE_LENGTH);
+  if (cycleDay !== null) cleaned.cycleDay = cycleDay;
+  if (averageCycleLength !== null) cleaned.averageCycleLength = averageCycleLength;
+  if (currentPhase) cleaned.currentPhase = currentPhase;
+
+  if (value.todayCheckin && typeof value.todayCheckin === 'object' && !Array.isArray(value.todayCheckin)) {
+    const checkin = {};
+    const mood = shortString(value.todayCheckin.mood, MAX_CONTEXT_STRING_LENGTH);
+    const energy = numberInRange(value.todayCheckin.energy, 0, 10);
+    const sleep = numberInRange(value.todayCheckin.sleep, 0, 24);
+    const pain = numberInRange(value.todayCheckin.pain, 0, 10);
+    const flow = typeof value.todayCheckin.flow === 'string'
+      && CONTEXT_FLOWS.has(value.todayCheckin.flow.toLowerCase())
+      ? value.todayCheckin.flow.toLowerCase()
+      : null;
+    if (mood) checkin.mood = mood;
+    if (energy !== null) checkin.energy = energy;
+    if (sleep !== null) checkin.sleep = sleep;
+    if (pain !== null) checkin.pain = pain;
+    if (flow) checkin.flow = flow;
+    if (Object.keys(checkin).length) cleaned.todayCheckin = checkin;
+  }
+
+  const mealsLogged = numberInRange(value.mealsLogged, 0, MAX_CONTEXT_MEALS_LOGGED, true);
+  if (mealsLogged !== null) cleaned.mealsLogged = mealsLogged;
+  if (typeof value.movementLogged === 'boolean') cleaned.movementLogged = value.movementLogged;
+  if (Array.isArray(value.goals)) {
+    cleaned.goals = value.goals
+      .slice(0, MAX_CONTEXT_GOALS)
+      .map((goal) => shortString(goal, MAX_CONTEXT_STRING_LENGTH))
+      .filter(Boolean);
+  }
+  if (CONTEXT_TRACKING_MODES.has(value.trackingMode)) {
+    cleaned.trackingMode = value.trackingMode;
+  }
+
+  return Object.keys(cleaned).length ? cleaned : null;
+}
 
 function wait(milliseconds) {
   if (!milliseconds) return Promise.resolve();
@@ -246,14 +313,14 @@ function choosePlanActions(context = {}) {
 }
 
 function periodExplanation(context = {}) {
-  const cycleDay = safeNumber(context.currentCycleDay);
+  const cycleDay = safeNumber(context.cycleDay);
   const averageCycleLength = safeNumber(context.averageCycleLength);
   const parts = [];
 
   if (cycleDay) {
     parts.push(`Your logs place you around cycle day ${cycleDay}.`);
   }
-  if (averageCycleLength && context.periodCount >= 2) {
+  if (averageCycleLength) {
     parts.push(`Your recent logged cycles average about ${averageCycleLength} days, but an average cannot say exactly when this period will begin.`);
   } else {
     parts.push('There is not enough cycle history to make a dependable estimate yet.');
@@ -271,8 +338,8 @@ function conversationResponse(context = {}) {
 }
 
 function doctorResponse(context = {}) {
-  const cycleDetail = context.currentCycleDay
-    ? `You can mention that your current log is around cycle day ${context.currentCycleDay}, while making clear that cycle dates are estimates.`
+  const cycleDetail = context.cycleDay
+    ? `You can mention that your current log is around cycle day ${context.cycleDay}, while making clear that cycle dates are estimates.`
     : 'Start with when the change began and how it affects daily life.';
   return `${cycleDetail} Write down two things: the symptoms or cycle changes you have noticed, and the questions you want answered. Bloom can organise your logs, but it cannot diagnose their cause.`;
 }
@@ -307,29 +374,73 @@ export function buildMegContext(state = {}, now = new Date()) {
     null;
   const meals = (Array.isArray(state.meals) ? state.meals : []).filter((entry) => entry.date === today);
   const movements = (Array.isArray(state.movements) ? state.movements : []).filter((entry) => entry.date === today);
-  const periods = Array.isArray(state.periods) ? state.periods : [];
-
-  return {
-    date: today,
-    currentCycleDay: safeNumber(state.currentCycleDay),
-    currentPhase: state.currentPhase?.label || null,
-    averageCycleLength: safeNumber(state.averageCycleLength),
-    periodCount: periods.length,
-    todayCheckin,
-    meals,
-    movements,
-    goals: state.profile?.goals || state.settings?.goals || [],
-    trackingMode: state.profile?.trackingMode || state.settings?.trackingMode || 'cycle',
+  const boundedNumber = (value, minimum, maximum, integer = false) => {
+    const number = safeNumber(value);
+    if (
+      number === null
+      || number < minimum
+      || number > maximum
+      || (integer && !Number.isInteger(number))
+    ) return null;
+    return number;
   };
+  const boundedString = (value, maxLength) => {
+    if (typeof value !== 'string') return null;
+    const cleaned = value.trim();
+    return cleaned && cleaned.length <= maxLength ? cleaned : null;
+  };
+  const sourceCheckin = todayCheckin && typeof todayCheckin === 'object'
+    ? todayCheckin
+    : {};
+  const boundedCheckin = {};
+  const mood = boundedString(sourceCheckin.mood, MAX_CONTEXT_STRING_LENGTH);
+  const energy = boundedNumber(sourceCheckin.energy, 0, 10);
+  const sleep = boundedNumber(sourceCheckin.sleep, 0, 24);
+  const pain = boundedNumber(sourceCheckin.pain, 0, 10);
+  const flow = typeof sourceCheckin.flow === 'string'
+    && CONTEXT_FLOWS.has(sourceCheckin.flow.toLowerCase())
+    ? sourceCheckin.flow.toLowerCase()
+    : null;
+  if (mood) boundedCheckin.mood = mood;
+  if (energy !== null) boundedCheckin.energy = energy;
+  if (sleep !== null) boundedCheckin.sleep = sleep;
+  if (pain !== null) boundedCheckin.pain = pain;
+  if (flow) boundedCheckin.flow = flow;
+
+  const goalValues = Array.isArray(state.profile?.goals)
+    ? state.profile.goals
+    : Array.isArray(state.settings?.goals) ? state.settings.goals : [];
+  const goals = goalValues
+    .slice(0, MAX_CONTEXT_GOALS)
+    .map((goal) => boundedString(goal, MAX_CONTEXT_STRING_LENGTH))
+    .filter(Boolean);
+  const trackingModeValue = state.profile?.trackingMode || state.settings?.trackingMode;
+
+  return cleanMegContextForRequest({
+    cycleDay: boundedNumber(state.currentCycleDay, 1, 500, true),
+    currentPhase: boundedString(state.currentPhase?.label, MAX_CONTEXT_PHASE_LENGTH),
+    averageCycleLength: boundedNumber(state.averageCycleLength, 10, 120),
+    todayCheckin: Object.keys(boundedCheckin).length ? boundedCheckin : null,
+    mealsLogged: Math.min(meals.length, MAX_CONTEXT_MEALS_LOGGED),
+    movementLogged: movements.some((entry) => entry?.status !== 'not_today'),
+    goals,
+    trackingMode: CONTEXT_TRACKING_MODES.has(trackingModeValue)
+      ? trackingModeValue
+      : 'cycle',
+  });
 }
 
 export function describeMegContext(context = {}) {
   const details = [];
-  if (context.currentCycleDay) details.push(`Cycle day ${context.currentCycleDay}`);
+  if (context.cycleDay) details.push(`Cycle day ${context.cycleDay}`);
+  if (context.currentPhase) details.push(context.currentPhase);
+  if (context.averageCycleLength) details.push(`Average cycle ${context.averageCycleLength} days`);
   if (context.todayCheckin) {
     const checkinDetails = [];
-    if (MOOD_LABELS[context.todayCheckin.mood]) {
-      checkinDetails.push(MOOD_LABELS[context.todayCheckin.mood]);
+    if (context.todayCheckin.mood) {
+      checkinDetails.push(
+        MOOD_LABELS[context.todayCheckin.mood] || context.todayCheckin.mood
+      );
     }
     if (safeNumber(context.todayCheckin.energy) !== null) {
       checkinDetails.push(`energy ${context.todayCheckin.energy}/10`);
@@ -337,10 +448,18 @@ export function describeMegContext(context = {}) {
     if (safeNumber(context.todayCheckin.sleep) !== null) {
       checkinDetails.push(`${context.todayCheckin.sleep}h sleep`);
     }
+    if (safeNumber(context.todayCheckin.pain) !== null) {
+      checkinDetails.push(`pain ${context.todayCheckin.pain}/10`);
+    }
+    if (FLOW_LABELS[context.todayCheckin.flow]) {
+      checkinDetails.push(FLOW_LABELS[context.todayCheckin.flow]);
+    }
     details.push(checkinDetails.length ? `Today: ${checkinDetails.join(' · ')}` : 'Today’s check-in');
   }
-  if (context.meals?.length) details.push(`${context.meals.length} meal${context.meals.length === 1 ? '' : 's'} logged`);
-  if (context.movements?.length) details.push('Movement logged');
+  if (context.mealsLogged) details.push(`${context.mealsLogged} meal${context.mealsLogged === 1 ? '' : 's'} logged`);
+  if (context.movementLogged) details.push('Movement logged');
+  if (context.goals?.length) details.push(`Goals: ${context.goals.join(', ')}`);
+  if (context.trackingMode === 'pcos') details.push('PCOS support mode');
   return details;
 }
 
@@ -488,6 +607,7 @@ export function createLocalMegApiProvider({
               mode: request?.mode || null,
               supportMode: request?.supportMode || request?.mode || null,
               language: request?.language || 'en',
+              context: cleanMegContextForRequest(request?.context),
               history: apiHistory(
                 [...(request?.memory || []), ...(request?.history || [])],
                 message

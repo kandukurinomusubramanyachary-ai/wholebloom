@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { format, isValid, parseISO } from 'date-fns';
 import { useApp } from '../context/AppContext';
 import { localDateKey } from '../utils/dateKey';
-import { COLORS, ELEVATION, LAYOUT } from '../utils/constants';
+import { COLORS, createThemedStyles, ELEVATION, LAYOUT } from '../utils/constants';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import ScreenHeader from '../components/ScreenHeader';
@@ -389,7 +389,7 @@ function ActionButton({ label, icon, danger, onPress }) {
   return <Pressable onPress={onPress} accessibilityRole='button' accessibilityLabel={label} style={({ pressed, hovered, focused }) => [styles.actionButton, hovered && styles.actionButtonHovered, focused && styles.actionButtonFocused, pressed && styles.pressed]}>{icon ? <Ionicons name={icon} size={16} color={danger ? COLORS.error : COLORS.body} /> : null}<Text style={[styles.actionText, danger && styles.dangerText]}>{label}</Text></Pressable>;
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   safeArea: { flex: 1, backgroundColor: COLORS.canvas },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 48 },

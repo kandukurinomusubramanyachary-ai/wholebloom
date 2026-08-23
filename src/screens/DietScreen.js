@@ -22,7 +22,7 @@ import {
   buildDietObservations,
 } from '../services/dietSuggestions';
 import { localDateKey } from '../utils/dateKey';
-import { COLORS, LAYOUT, TYPOGRAPHY, WEB_FOCUS } from '../utils/constants';
+import { COLORS, createThemedStyles, LAYOUT, TYPOGRAPHY, WEB_FOCUS } from '../utils/constants';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import ScreenHeader from '../components/ScreenHeader';
@@ -1384,7 +1384,7 @@ function MealHistoryRow({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   safeArea: { flex: 1, backgroundColor: COLORS.canvas },
   keyboard: { flex: 1 },
   scroll: { flex: 1, backgroundColor: COLORS.canvas },

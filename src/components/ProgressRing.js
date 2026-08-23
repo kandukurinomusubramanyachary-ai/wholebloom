@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { COLORS } from '../utils/constants';
+import { COLORS, createThemedStyles } from '../utils/constants';
 import { Entrance } from './Motion';
 
 export default function ProgressRing({
@@ -51,7 +51,7 @@ export default function ProgressRing({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   container: {
     alignItems: 'center',
     justifyContent: 'center',

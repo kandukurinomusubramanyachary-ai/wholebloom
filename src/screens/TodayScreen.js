@@ -7,7 +7,7 @@ import { useApp } from '../context/AppContext';
 import { localDateKey } from '../utils/dateKey';
 import { preferredDisplayName } from '../utils/displayName';
 import { buildDailyPlan } from '../services/dailyPlan';
-import { COLORS, LAYOUT, MOODS, SYMPTOMS } from '../utils/constants';
+import { COLORS, createThemedStyles, LAYOUT, MOODS, SYMPTOMS } from '../utils/constants';
 import BrandMark from '../components/BrandMark';
 import Button from '../components/Button';
 import Card from '../components/Card';
@@ -385,7 +385,7 @@ export default function TodayScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   safeArea: { flex: 1, backgroundColor: COLORS.canvas },
   screen: { flex: 1, backgroundColor: COLORS.canvas },
   scrollContent: { paddingBottom: 48 },

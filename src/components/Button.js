@@ -1,7 +1,7 @@
 import React from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, TYPOGRAPHY, WEB_FOCUS } from '../utils/constants';
+import { COLORS, createThemedStyles, TYPOGRAPHY, WEB_FOCUS } from '../utils/constants';
 
 export default function Button({
   title,
@@ -78,7 +78,7 @@ export default function Button({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   button: {
     minHeight: 52,
     alignItems: 'center',

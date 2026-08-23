@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import {
-  COLORS,
+  COLORS, createThemedStyles,
   DIETARY_PREFERENCES,
   LANGUAGES,
   LAYOUT,
@@ -29,6 +29,11 @@ const TRACKING_MODES = [
     description: 'Deeper tracking, daily guidance, Meg and care preparation',
     icon: 'flower-outline',
   },
+];
+
+const THEME_OPTIONS = [
+  { id: 'light', label: 'Light', icon: 'sunny-outline' },
+  { id: 'dark', label: 'Dark', icon: 'moon-outline' },
 ];
 
 function toggleValue(values, id) {
@@ -139,6 +144,7 @@ export default function PreferencesScreen({ navigation }) {
   ));
   const [language, setLanguage] = useState(current.language || profile.language || 'en');
   const [tone, setTone] = useState(current.tone || 'gentle');
+  const [theme, setTheme] = useState(current.theme === 'dark' ? 'dark' : 'light');
   const [megMemory, setMegMemory] = useState(Boolean(current.megMemory));
   const [cyclePredictions, setCyclePredictions] = useState(current.cyclePredictions !== false);
   const [saving, setSaving] = useState(false);
@@ -167,6 +173,7 @@ export default function PreferencesScreen({ navigation }) {
         movementPreferences,
         language,
         tone,
+        theme,
         megMemory,
         cyclePredictions,
       });
@@ -223,6 +230,25 @@ export default function PreferencesScreen({ navigation }) {
                   accessibilityLabel='Age, optional'
                 />
               </View>
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <SectionHeading
+              icon='contrast-outline'
+              title='Appearance'
+              description='Choose the theme that feels most comfortable. Dark mode reduces glare in low light.'
+            />
+            <View style={styles.choiceGrid} accessibilityRole='radiogroup' accessibilityLabel='App theme'>
+              {THEME_OPTIONS.map((item) => (
+                <SelectionChip
+                  key={item.id}
+                  item={item}
+                  selected={theme === item.id}
+                  wide
+                  onPress={() => setTheme(item.id)}
+                />
+              ))}
             </View>
           </View>
 
@@ -434,7 +460,7 @@ function BackButton({ onPress }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   safeArea: { flex: 1, backgroundColor: COLORS.canvas },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 48 },

@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
-import { COLORS, LAYOUT } from '../utils/constants';
+import { COLORS, createThemedStyles, LAYOUT } from '../utils/constants';
 import { exportService } from '../services/export';
 import ScreenHeader from '../components/ScreenHeader';
 import Button from '../components/Button';
@@ -124,7 +124,7 @@ function SummaryRow({ label, value, last = false }) {
   return <View style={[styles.summaryRow, last && styles.lastRow]}><Text style={styles.summaryLabel}>{label}</Text><Text style={styles.summaryValue}>{value}</Text></View>;
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   safeArea: { flex: 1, backgroundColor: COLORS.canvas },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 40 },

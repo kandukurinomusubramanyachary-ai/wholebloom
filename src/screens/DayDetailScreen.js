@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
-import { COLORS, LAYOUT, MOODS, FLOW_LEVELS, SYMPTOMS } from '../utils/constants';
+import { COLORS, createThemedStyles, LAYOUT, MOODS, FLOW_LEVELS, SYMPTOMS } from '../utils/constants';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { getCycleDay } from '../utils/helpers';
 import Button from '../components/Button';
@@ -365,7 +365,7 @@ export default function DayDetailScreen({ route, navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   safeArea: { flex: 1, backgroundColor: COLORS.canvas },
   scrollView: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingBottom: 40 },

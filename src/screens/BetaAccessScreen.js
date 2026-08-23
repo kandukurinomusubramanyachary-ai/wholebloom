@@ -14,7 +14,7 @@ import BrandMark from '../components/BrandMark';
 import Button from '../components/Button';
 import { Entrance } from '../components/Motion';
 import { checkBetaEmail, isValidBetaEmail, normalizeBetaEmail } from '../services/betaAccess';
-import { COLORS, LAYOUT, WEB_FOCUS } from '../utils/constants';
+import { COLORS, createThemedStyles, LAYOUT, WEB_FOCUS } from '../utils/constants';
 
 const INVALID_EMAIL_MESSAGE = 'Enter a valid email address.';
 const SERVER_ERROR_MESSAGE = 'We could not check Beta access right now. Please try again.';
@@ -198,7 +198,7 @@ export default function BetaAccessScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.splash,

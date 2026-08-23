@@ -21,7 +21,7 @@ import {
   normalizeAuthEmail,
   useAuth,
 } from '../context/AuthContext';
-import { COLORS, LAYOUT, WEB_FOCUS } from '../utils/constants';
+import { COLORS, createThemedStyles, LAYOUT, WEB_FOCUS } from '../utils/constants';
 
 function AuthField({
   label,
@@ -333,7 +333,7 @@ export default function AuthScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   safeArea: { flex: 1, backgroundColor: COLORS.splash },
   keyboardView: { flex: 1 },
   scroll: { flex: 1 },

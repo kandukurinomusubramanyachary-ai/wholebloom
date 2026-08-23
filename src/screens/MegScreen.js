@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
-import { COLORS, LAYOUT, WEB_FOCUS } from '../utils/constants';
+import { COLORS, createThemedStyles, LAYOUT, WEB_FOCUS } from '../utils/constants';
 import {
   MEG_MODES,
   buildMegContext,
@@ -123,7 +123,7 @@ function ContextPanel({ context }) {
           <Text style={styles.contextTitle}>Bloom context</Text>
           <Text style={styles.contextBody}>
             {details.length
-              ? 'Meg only receives the relevant details shown here.'
+              ? 'Meg receives only the relevant details shown here for this message.'
               : 'No check-in details are being added to this conversation.'}
           </Text>
         </View>
@@ -1250,7 +1250,7 @@ export default function MegScreen({ route }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   safeArea: {
     flex: 1,
     minHeight: 0,

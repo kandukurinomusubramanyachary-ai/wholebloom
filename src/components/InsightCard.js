@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../utils/constants';
+import { COLORS, createThemedStyles } from '../utils/constants';
 import Card from './Card';
 import { ScrollReveal } from './Motion';
 
@@ -49,7 +49,7 @@ export default function InsightCard({ insight, index = 0, animated = true }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   card: { marginBottom: 10 },
   header: {
     flexDirection: 'row',

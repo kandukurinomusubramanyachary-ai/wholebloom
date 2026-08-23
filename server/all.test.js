@@ -1,4 +1,6 @@
 require('./megBackend.test');
+require('./megContext.test');
+require('./megClient.test');
 require('./megQaTiming.test');
 require('./megUrlPolicy.test');
 require('./megLocalQueue.test');
@@ -10,3 +12,4 @@ require('./dietFeature.test');
 require('./dietData.test');
 require('./periodTracking.test');
 require('./uiHardening.test');
+require('./theme.test');

@@ -6,7 +6,7 @@ import { eachDayOfInterval, format, isValid, parseISO, subDays } from 'date-fns'
 import { useApp } from '../context/AppContext';
 import { buildPersonalInsights } from '../services/insights';
 import { ARTICLES } from '../data/content';
-import { COLORS, LAYOUT } from '../utils/constants';
+import { COLORS, createThemedStyles, LAYOUT } from '../utils/constants';
 import ArticleCard from '../components/ArticleCard';
 import Button from '../components/Button';
 import Card from '../components/Card';
@@ -376,7 +376,7 @@ function LearnTab({ searchQuery, setSearchQuery, selectedCategory, setSelectedCa
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   safeArea: { flex: 1, backgroundColor: COLORS.canvas },
   screen: { flex: 1, backgroundColor: COLORS.canvas },
   scrollContent: { paddingBottom: 48 },

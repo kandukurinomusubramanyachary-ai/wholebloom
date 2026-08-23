@@ -1,7 +1,7 @@
 import React from 'react';
 import { Platform, View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, FLOW_LEVELS, WEB_FOCUS } from '../utils/constants';
+import { COLORS, createThemedStyles, FLOW_LEVELS, WEB_FOCUS } from '../utils/constants';
 
 export default function FlowSelector({ selected, onSelect }) {
   return (
@@ -37,7 +37,7 @@ export default function FlowSelector({ selected, onSelect }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   container: {
     flexDirection: 'row',
     flexWrap: 'wrap',

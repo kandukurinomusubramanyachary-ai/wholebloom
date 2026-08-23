@@ -3,7 +3,7 @@ import { View, Text, TextInput, ScrollView, Pressable, StyleSheet } from 'react-
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
-import { COLORS, LAYOUT } from '../utils/constants';
+import { COLORS, createThemedStyles, LAYOUT } from '../utils/constants';
 import { ARTICLES } from '../data/content';
 import ArticleCard from '../components/ArticleCard';
 import ScreenHeader from '../components/ScreenHeader';
@@ -146,7 +146,7 @@ export default function LearnScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   safeArea: { flex: 1, backgroundColor: COLORS.canvas },
   screen: { flex: 1, backgroundColor: COLORS.canvas },
   scrollContent: { paddingBottom: 40 },

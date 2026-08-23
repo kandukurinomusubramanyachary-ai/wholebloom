@@ -1,6 +1,6 @@
 import React from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
-import { COLORS, ELEVATION, WEB_FOCUS } from '../utils/constants';
+import { COLORS, createThemedStyles, ELEVATION, WEB_FOCUS } from '../utils/constants';
 
 const elevationStyle = Platform.select({
   web: ELEVATION.web,
@@ -63,7 +63,7 @@ export default function Card({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   card: {
     padding: 20,
     borderWidth: 1,

@@ -11,7 +11,7 @@ Design settings:
 - Visual variance: 5/10
 - Motion intensity: 3/10
 - Visual density: 4/10
-- Theme: light
+- Theme: user-selectable light or dark; light remains the default
 - Color strategy: restrained
 
 ## Color
@@ -36,6 +36,12 @@ Design settings:
 | Error | `#B42318` | Destructive confirmation and inline validation only |
 
 Primary buttons use Brand with white text. The darker brand token is intentional so button labels meet contrast requirements. Bright red is never used for cycle status.
+
+### Dark theme
+
+Dark mode is designed for private evening check-ins in low ambient light. It uses a rose-tinted near-black canvas (`#121113`), distinct soft and raised surfaces (`#1B191C` and `#242126`), warm white ink (`#F7F4F5`), and a brighter Bloom rose (`#EE718B`) for selection and focus. Semantic cycle and sage colors are lifted rather than desaturated so they remain legible without feeling clinical.
+
+The dark palette follows the same restrained rules as light mode: accent color is reserved for actions and current state, borders stay quiet, and surfaces—not shadows—carry most grouping. Body, muted, accent, error, and success text all meet WCAG AA contrast against the dark canvas. Users choose Light or Dark in Profile → Personalisation; the choice is stored with their UID-scoped device settings.
 
 ## Typography
 

@@ -60,6 +60,7 @@ import {
 } from '../utils/helpers';
 import { localDateKey } from '../utils/dateKey';
 import { setStartupStage } from '../diagnostics/startupDiagnostics';
+import { cleanThemePreference, setActiveTheme } from '../utils/constants';
 
 const AppContext = createContext();
 
@@ -205,7 +206,13 @@ export function AppProvider({ children }) {
   const activeUidRef = useRef(user.uid);
   const dietMutationRevisionRef = useRef(0);
   activeUidRef.current = user.uid;
-  const publicState = useMemo(() => ({ ...state, ...derivedValues(state) }), [state]);
+  const resolvedTheme = cleanThemePreference(state.settings?.theme);
+  setActiveTheme(resolvedTheme);
+  const publicState = useMemo(() => ({
+    ...state,
+    ...derivedValues(state),
+    resolvedTheme,
+  }), [resolvedTheme, state]);
 
   useEffect(() => {
     setStartupStage('profile-load');

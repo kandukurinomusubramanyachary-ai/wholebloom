@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { loadLastStartupFailure } from '../diagnostics/startupDiagnostics';
-import { COLORS, LAYOUT, WEB_FOCUS } from '../utils/constants';
+import { COLORS, createThemedStyles, LAYOUT, WEB_FOCUS } from '../utils/constants';
 
 const FALLBACK_FAILURE = {
   diagnosticId: 'bloom-unavailable',
@@ -151,7 +151,7 @@ export default function StartupDiagnosticScreen({ failure, onRetry }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.splash,

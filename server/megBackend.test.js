@@ -18,6 +18,7 @@ const {
   createMegPersistence,
   stripUndefined,
 } = require('./megPersistence');
+const { MODE_INSTRUCTIONS } = require('./megModes');
 
 const silentLogger = {
   info() {},
@@ -160,6 +161,79 @@ test('Meg derives UID only from the verified token and returns safe persisted id
       safety: null,
     });
     assert.equal(Object.prototype.hasOwnProperty.call(payload, 'uid'), false);
+  });
+});
+
+test('Meg injects mode and sanitized logged context before history in provider messages', async () => {
+  const runtime = fakeRuntime();
+  await withServer(runtime, async (baseUrl) => {
+    const response = await postMeg(baseUrl, chatBody({
+      message: 'Why do I feel awful?',
+      mode: 'understand',
+      context: {
+        cycleDay: 18,
+        currentPhase: 'Later cycle',
+        todayCheckin: { mood: 'low', sleep: 5 },
+        isAdmin: true,
+      },
+      history: [{ role: 'assistant', content: 'What feels different today?' }],
+    }), 'valid-token');
+
+    assert.equal(response.status, 200);
+    assert.equal(runtime.calls.provider.length, 1);
+    const messages = runtime.calls.provider[0].messages;
+    assert.equal(messages[1].role, 'system');
+    assert.equal(messages[1].content, MODE_INSTRUCTIONS.understand);
+    assert.equal(messages[2].role, 'system');
+    assert.match(messages[2].content, /cycle day: 18/i);
+    assert.match(messages[2].content, /sleep 5h/i);
+    assert.doesNotMatch(messages[2].content, /isAdmin/i);
+    assert.deepEqual(messages[3], {
+      role: 'assistant',
+      content: 'What feels different today?',
+    });
+    assert.deepEqual(messages[4], { role: 'user', content: 'Why do I feel awful?' });
+    assert.equal(runtime.calls.userMessages[0].mode, 'understand');
+  });
+});
+
+test('invalid Meg context returns 400 before persistence or provider work', async () => {
+  const runtime = fakeRuntime();
+  await withServer(runtime, async (baseUrl) => {
+    const response = await postMeg(baseUrl, chatBody({
+      context: { cycleDay: 9999 },
+    }), 'valid-token');
+
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: 'context contains an invalid value' });
+    assert.equal(runtime.calls.userMessages.length, 0);
+    assert.equal(runtime.calls.assistantMessages.length, 0);
+    assert.equal(runtime.calls.provider.length, 0);
+  });
+});
+
+test('invalid Meg mode is treated as absent and supportMode remains a compatible alias', async () => {
+  const invalidRuntime = fakeRuntime();
+  await withServer(invalidRuntime, async (baseUrl) => {
+    const response = await postMeg(baseUrl, chatBody({ mode: 'diagnose' }), 'valid-token');
+    assert.equal(response.status, 200);
+    assert.equal(invalidRuntime.calls.userMessages[0].mode, null);
+    assert.equal(
+      invalidRuntime.calls.provider[0].messages.some(
+        (message) => Object.values(MODE_INSTRUCTIONS).includes(message.content)
+      ),
+      false
+    );
+  });
+
+  const aliasRuntime = fakeRuntime();
+  await withServer(aliasRuntime, async (baseUrl) => {
+    const body = chatBody({ supportMode: 'plan' });
+    delete body.mode;
+    const response = await postMeg(baseUrl, body, 'valid-token');
+    assert.equal(response.status, 200);
+    assert.equal(aliasRuntime.calls.userMessages[0].mode, 'plan');
+    assert.equal(aliasRuntime.calls.provider[0].messages[1].content, MODE_INSTRUCTIONS.plan);
   });
 });
 

@@ -3,7 +3,7 @@ import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
-import { COLORS, FLOW_LEVELS, LAYOUT } from '../utils/constants';
+import { COLORS, createThemedStyles, FLOW_LEVELS, LAYOUT } from '../utils/constants';
 import { addDays, format, isBefore, parseISO } from 'date-fns';
 import Button from '../components/Button';
 import { Entrance } from '../components/Motion';
@@ -316,7 +316,7 @@ export default function LogPeriodScreen({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   safeArea: { flex: 1, backgroundColor: COLORS.canvas },
   scrollView: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingBottom: 40 },

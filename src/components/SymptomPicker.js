@@ -1,7 +1,7 @@
 import React from 'react';
 import { Platform, View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SYMPTOMS, WEB_FOCUS } from '../utils/constants';
+import { COLORS, createThemedStyles, SYMPTOMS, WEB_FOCUS } from '../utils/constants';
 
 export default function SymptomPicker({ selected = [], onToggle }) {
   return (
@@ -39,7 +39,7 @@ export default function SymptomPicker({ selected = [], onToggle }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   container: {
     flexDirection: 'row',
     flexWrap: 'wrap',

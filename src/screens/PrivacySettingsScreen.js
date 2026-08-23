@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useApp } from '../context/AppContext';
-import { COLORS, LAYOUT } from '../utils/constants';
+import { COLORS, createThemedStyles, LAYOUT } from '../utils/constants';
 import Button from '../components/Button';
 import ScreenHeader from '../components/ScreenHeader';
 
@@ -302,7 +302,7 @@ function BackButton({ onPress }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   safeArea: { flex: 1, backgroundColor: COLORS.canvas },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 40 },

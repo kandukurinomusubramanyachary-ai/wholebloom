@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { COLORS, LAYOUT } from '../utils/constants';
+import { COLORS, createThemedStyles, LAYOUT } from '../utils/constants';
 import { useApp } from '../context/AppContext';
 import BrandMark from './BrandMark';
 import Button from './Button';
@@ -127,7 +127,7 @@ export default function AppLockModal({ visible, onUnlock }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   safeArea: { flex: 1, backgroundColor: COLORS.canvas },
   keyboardView: { flex: 1 },
   scroll: { flex: 1 },

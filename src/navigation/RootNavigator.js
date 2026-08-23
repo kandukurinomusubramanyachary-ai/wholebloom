@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect, useRef } from 'react';
+import React, { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { AppState, Easing, Platform } from 'react-native';
@@ -27,6 +27,17 @@ const Stack = createStackNavigator();
 
 export default function RootNavigator() {
   const { state } = useApp();
+  const navigationTheme = useMemo(() => ({
+    dark: state.resolvedTheme === 'dark',
+    colors: {
+      primary: COLORS.brand,
+      background: COLORS.canvas,
+      card: COLORS.white,
+      text: COLORS.ink,
+      border: COLORS.hairline,
+      notification: COLORS.brand,
+    },
+  }), [state.resolvedTheme]);
   const reduceMotion = useReducedMotion();
   const [splashComplete, setSplashComplete] = useState(false);
   const [locked, setLocked] = useState(false);
@@ -161,15 +172,3 @@ export default function RootNavigator() {
     </>
   );
 }
-
-const navigationTheme = {
-  dark: false,
-  colors: {
-    primary: COLORS.brand,
-    background: COLORS.canvas,
-    card: COLORS.canvas,
-    text: COLORS.ink,
-    border: COLORS.hairline,
-    notification: COLORS.brand,
-  },
-};

@@ -3,7 +3,7 @@ import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BrandMark from '../components/BrandMark';
 import { useReducedMotion } from '../components/Motion';
-import { COLORS } from '../utils/constants';
+import { COLORS, createThemedStyles } from '../utils/constants';
 import { setStartupStage } from '../diagnostics/startupDiagnostics';
 
 const SPLASH_DURATION = 2200;
@@ -118,7 +118,7 @@ export default function SplashScreen({ ready, onFinish }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   screen: {
     flex: 1,
     alignItems: 'center',

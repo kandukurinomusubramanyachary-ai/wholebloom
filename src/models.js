@@ -5,6 +5,7 @@
  * type information without introducing a parallel TypeScript build.
  *
  * @typedef {'cycle' | 'pcos'} TrackingMode
+ * @typedef {'light' | 'dark'} ThemePreference
  * @typedef {'none' | 'spotting' | 'light' | 'medium' | 'heavy'} FlowLevel
  *
  * @typedef {Object} UserProfile
@@ -80,6 +81,7 @@
 export const DATA_SCHEMA_VERSION = 2;
 
 export const DEFAULT_TRACKING_PREFERENCES = {
+  theme: 'light',
   trackingMode: 'cycle',
   goals: ['track_cycle'],
   symptomsToTrack: [],

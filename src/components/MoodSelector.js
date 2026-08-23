@@ -1,7 +1,7 @@
 import React from 'react';
 import { Platform, View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, MOODS, WEB_FOCUS } from '../utils/constants';
+import { COLORS, createThemedStyles, MOODS, WEB_FOCUS } from '../utils/constants';
 
 export default function MoodSelector({ selected, onSelect }) {
   return (
@@ -37,7 +37,7 @@ export default function MoodSelector({ selected, onSelect }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   container: {
     flexDirection: 'row',
     flexWrap: 'wrap',

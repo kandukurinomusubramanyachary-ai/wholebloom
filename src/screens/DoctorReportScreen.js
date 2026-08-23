@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { format, parseISO, subDays } from 'date-fns';
 import { useApp } from '../context/AppContext';
-import { COLORS, ELEVATION, LAYOUT } from '../utils/constants';
+import { COLORS, createThemedStyles, ELEVATION, LAYOUT } from '../utils/constants';
 import {
   buildDoctorReport,
   doctorReportToText,
@@ -615,7 +615,7 @@ export default function DoctorReportScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.canvas,

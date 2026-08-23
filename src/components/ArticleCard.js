@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Platform, View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, ELEVATION, WEB_FOCUS } from '../utils/constants';
+import { COLORS, createThemedStyles, ELEVATION, WEB_FOCUS } from '../utils/constants';
 
 const elevationStyle = Platform.select({
   web: ELEVATION.web,
@@ -76,7 +76,7 @@ export default function ArticleCard({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createThemedStyles({
   card: {
     position: 'relative',
     marginBottom: 12,
