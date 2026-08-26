@@ -4,6 +4,7 @@ const { createRepStateMachine } = require('../src/features/strength/engine/repSt
 const { createCueScheduler } = require('../src/features/strength/engine/cueScheduler');
 const { createLandmarkSmoother } = require('../src/features/strength/engine/landmarkSmoothing');
 const { createCoverTransform, mapNormalizedPoint } = require('../src/features/strength/engine/poseTransform');
+const { createPositioningCoach } = require('../src/features/strength/engine/positioningCoach');
 const {
   SUMMARY_KEYS,
   assertPrivacySafeObject,
@@ -183,6 +184,35 @@ test('cover transform mirrors overlay geometry in preview coordinates', () => {
   assert.ok(left.x > right.x);
   assert.equal(Math.round(left.x + right.x), 300);
   assert.equal(left.y, 200);
+});
+
+test('positioning coach requires a continuous ready hold', () => {
+  const coach = createPositioningCoach({
+    readyHoldMs: 2000,
+    issueDwellMs: 300,
+    uiMinimumGapMs: 0,
+    evaluate: (frame) => frame.result,
+  });
+  assert.equal(coach.process({ ts: 0, result: { ok: true, instruction: 'Good.' } }).ready, false);
+  assert.equal(coach.process({ ts: 1500, result: { ok: true, instruction: 'Good.' } }).ready, false);
+  coach.process({ ts: 1600, result: { ok: false, reason: 'off_centre', instruction: 'Move left.' } });
+  assert.equal(coach.process({ ts: 1700, result: { ok: true, instruction: 'Good.' } }).ready, false);
+  assert.equal(coach.process({ ts: 3700, result: { ok: true, instruction: 'Good.' } }).ready, true);
+});
+
+test('positioning coach dwells before publishing a transient issue', () => {
+  const coach = createPositioningCoach({
+    readyHoldMs: 2000,
+    issueDwellMs: 300,
+    uiMinimumGapMs: 0,
+    evaluate: (frame) => frame.result,
+  });
+  coach.process({ ts: 0, result: { ok: true, instruction: 'Good.' } });
+  const jitter = coach.process({ ts: 100, result: { ok: false, reason: 'off_centre', instruction: 'Move left.' } });
+  assert.equal(jitter.ok, true);
+  const stableIssue = coach.process({ ts: 400, result: { ok: false, reason: 'off_centre', instruction: 'Move left.' } });
+  assert.equal(stableIssue.ok, false);
+  assert.equal(stableIssue.instruction, 'Move left.');
 });
 
 test('strength summary serializer emits only the privacy allowlist', () => {
