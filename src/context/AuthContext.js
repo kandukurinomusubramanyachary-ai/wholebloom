@@ -10,7 +10,9 @@ import React, {
 import {
   createUserWithEmailAndPassword,
   deleteUser,
+  EmailAuthProvider,
   onAuthStateChanged,
+  reauthenticateWithCredential,
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
@@ -256,6 +258,37 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  const deleteAccount = useCallback(async ({ password, beforeDelete }) => {
+    if (!user?.email) {
+      throw new BloomAuthError('Bloom could not verify this account. Log in again and retry.');
+    }
+    if (!password) throw new BloomAuthError('Enter your password to confirm deletion.', 'password');
+    if (typeof beforeDelete !== 'function') {
+      throw new BloomAuthError('Bloom could not prepare account deletion. Please try again.');
+    }
+
+    try {
+      const credential = EmailAuthProvider.credential(user.email, password);
+      await reauthenticateWithCredential(user, credential);
+    } catch (error) {
+      if (['auth/invalid-credential', 'auth/wrong-password'].includes(error?.code)) {
+        throw new BloomAuthError('That password is not correct.', 'password');
+      }
+      throw friendlyAuthError(error);
+    }
+
+    try {
+      await beforeDelete();
+      await deleteUser(user);
+      setUser(null);
+    } catch (error) {
+      if (error instanceof BloomAuthError) throw error;
+      throw new BloomAuthError(
+        'Bloom could not finish deleting your account. Your account remains accessible so you can try again.'
+      );
+    }
+  }, [user]);
+
   const value = useMemo(() => ({
     user,
     initializing,
@@ -265,10 +298,12 @@ export function AuthProvider({ children }) {
     signUp,
     logIn,
     logOut,
+    deleteAccount,
   }), [
     initializing,
     logIn,
     logOut,
+    deleteAccount,
     retryStartup,
     signUp,
     startupFailure,

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -101,6 +101,7 @@ export default function FoodScreen({ navigation, route }) {
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [notice, setNotice] = useState(null);
+  const mutationLock = useRef(null);
 
   const selectedDateMeals = useMemo(
     () => meals.filter((meal) => meal.date === date).sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || '')),
@@ -166,7 +167,8 @@ export default function FoodScreen({ navigation, route }) {
   }
 
   async function handleSave() {
-    if ((!name.trim() && !skipped) || saving) return;
+    if ((!name.trim() && !skipped) || saving || mutationLock.current) return;
+    mutationLock.current = 'save';
     const existing = editingId ? meals.find((meal) => meal.id === editingId) : null;
     const now = new Date().toISOString();
     setSaving(true);
@@ -194,11 +196,14 @@ export default function FoodScreen({ navigation, route }) {
     } catch (error) {
       setNotice({ type: 'error', text: 'This meal could not be saved. Your form is still here so you can try again.' });
     } finally {
+      mutationLock.current = null;
       setSaving(false);
     }
   }
 
   async function handleDelete(id) {
+    if (!id || saving || mutationLock.current) return;
+    mutationLock.current = `delete:${id}`;
     setSaving(true);
     setNotice(null);
     try {
@@ -209,6 +214,7 @@ export default function FoodScreen({ navigation, route }) {
     } catch (error) {
       setNotice({ type: 'error', text: 'This meal could not be deleted. Please try again.' });
     } finally {
+      mutationLock.current = null;
       setSaving(false);
     }
   }
@@ -227,8 +233,8 @@ export default function FoodScreen({ navigation, route }) {
         <View style={styles.content}>
           {navigation?.canGoBack?.() ? <BackButton onPress={() => navigation.goBack()} /> : null}
           <ScreenHeader
-            title='Food support'
-            subtitle='Notice what helps you feel nourished, without calories or food rules.'
+            title='Log what you ate'
+            subtitle='Keep it simple. Add only what you remember.'
             action={<View style={styles.dateBadge}><Ionicons name='calendar-clear-outline' size={15} color={COLORS.brand} /><Text style={styles.dateBadgeText}>{dateLabel(date)}</Text></View>}
           />
 
@@ -239,9 +245,32 @@ export default function FoodScreen({ navigation, route }) {
             </View>
           ) : null}
 
+          <Card style={styles.quickLogCard}>
+            <TextInput
+              value={name}
+              onChangeText={(value) => { setName(value); setSkipped(false); setSelectedTags([]); }}
+              placeholder='E.g., rice and dal, idli and sambar...'
+              placeholderTextColor={COLORS.muted}
+              style={styles.quickMealInput}
+              accessibilityLabel='What did you eat?'
+              multiline
+              maxLength={80}
+            />
+            <Text style={styles.quickSuggestionsLabel}>Recent suggestions</Text>
+            <View style={styles.quickSuggestions}>
+              {[...favourites, ...recent.filter((meal) => !favourites.some((item) => item.id === meal.id))].slice(0, 4).map((meal) => (
+                <Pressable key={meal.id} onPress={() => populateFromMeal(meal)} accessibilityRole='button' accessibilityLabel={`Use ${mealName(meal)}`} style={({ pressed, hovered, focused }) => [styles.quickSuggestionChip, hovered && styles.choiceHovered, focused && styles.focusedControl, pressed && styles.pressed]}><Ionicons name={isFavourite(meal) ? 'heart-outline' : 'time-outline'} size={15} color={COLORS.brand} /><Text numberOfLines={1} style={styles.quickSuggestionText}>{mealName(meal)}</Text></Pressable>
+              ))}
+              {!favourites.length && !recent.length ? FOOD_TEMPLATES.slice(0, 4).map((template) => (
+                <Pressable key={template.id} onPress={() => chooseTemplate(template)} accessibilityRole='button' accessibilityLabel={`Choose ${template.name}`} style={({ pressed, hovered, focused }) => [styles.quickSuggestionChip, hovered && styles.choiceHovered, focused && styles.focusedControl, pressed && styles.pressed]}><Ionicons name='restaurant-outline' size={15} color={COLORS.brand} /><Text numberOfLines={1} style={styles.quickSuggestionText}>{template.name}</Text></Pressable>
+              )) : null}
+            </View>
+            <Button title={editingId ? 'Save changes' : 'Save meal'} icon='checkmark' onPress={handleSave} disabled={!skipped && !name.trim()} loading={saving} style={styles.quickSaveButton} />
+          </Card>
+
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Find a familiar meal</Text>
-            <Text style={styles.sectionSubtitle}>Search Indian staples or start with a quick template.</Text>
+            <Text style={styles.sectionTitle}>Browse familiar meals</Text>
+            <Text style={styles.sectionSubtitle}>Search Indian staples or use a quick template.</Text>
             <View style={styles.searchBox}>
               <Ionicons name='search-outline' size={20} color={COLORS.muted} />
               <TextInput
@@ -291,24 +320,13 @@ export default function FoodScreen({ navigation, route }) {
           <Card style={styles.formCard}>
             <View style={styles.formHeading}>
               <View style={styles.formIcon}><Ionicons name={editingId ? 'create-outline' : 'add-outline'} size={21} color={COLORS.brand} /></View>
-              <View style={styles.flex}><Text style={styles.cardTitle}>{editingId ? 'Edit meal' : 'Log a meal'}</Text><Text style={styles.cardSubtitle}>Skip any detail you did not notice.</Text></View>
+              <View style={styles.flex}><Text style={styles.cardTitle}>{editingId ? 'Edit meal details' : 'Optional details'}</Text><Text style={styles.cardSubtitle}>Skip anything you did not notice.</Text></View>
             </View>
 
             <Text style={styles.label}>Meal type</Text>
             <View style={styles.chipRow} accessibilityRole='radiogroup'>
               {MEAL_TYPES.map((type) => <ChoiceChip key={type} label={type} selected={mealType === type} onPress={() => setMealType(type)} />)}
             </View>
-
-            <Text style={[styles.label, styles.fieldSpacing]}>Meal name</Text>
-            <TextInput
-              value={name}
-              onChangeText={(value) => { setName(value); setSkipped(false); setSelectedTags([]); }}
-              placeholder='For example, rice and dal'
-              placeholderTextColor={COLORS.muted}
-              style={styles.input}
-              accessibilityLabel='Meal name'
-              maxLength={80}
-            />
 
             <View style={styles.fieldSpacing}>
               <Text style={styles.label}>What was included?</Text>
@@ -390,10 +408,10 @@ function ActionButton({ label, icon, danger, onPress }) {
 }
 
 const styles = createThemedStyles({
-  safeArea: { flex: 1, backgroundColor: COLORS.canvas },
-  scroll: { flex: 1 },
-  scrollContent: { paddingBottom: 48 },
-  content: { width: '100%', maxWidth: LAYOUT.maxContentWidth, alignSelf: 'center', paddingHorizontal: LAYOUT.screenPadding, paddingTop: 10 },
+  safeArea: { flex: 1, minHeight: 0, backgroundColor: COLORS.canvas, ...Platform.select({ web: { height: '100vh', maxHeight: '100vh', overflow: 'hidden' } }) },
+  scroll: { flex: 1, minHeight: 0, ...Platform.select({ web: { height: '100%', maxHeight: '100%', overflowY: 'auto', overscrollBehaviorY: 'contain' } }) },
+  scrollContent: { flexGrow: 1, paddingBottom: 48 },
+  content: { width: '100%', maxWidth: LAYOUT.phoneMaxWidth || 430, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 10 },
   flex: { flex: 1 },
   pressed: { opacity: 0.7, transform: [{ scale: 0.985 }] },
   loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.canvas },
@@ -406,6 +424,13 @@ const styles = createThemedStyles({
   noticeSuccess: { backgroundColor: COLORS.sageLight },
   noticeError: { backgroundColor: '#FCEDEB' },
   noticeText: { flex: 1, fontSize: 14, lineHeight: 20, color: COLORS.body },
+  quickLogCard: { marginBottom: 26, padding: 0, borderWidth: 0, backgroundColor: COLORS.canvas },
+  quickMealInput: { minHeight: 132, paddingHorizontal: 16, paddingVertical: 15, borderWidth: 1, borderColor: COLORS.hairline, borderRadius: 12, textAlignVertical: 'top', fontSize: 15, lineHeight: 22, color: COLORS.ink, backgroundColor: COLORS.canvas },
+  quickSuggestionsLabel: { marginTop: 18, marginBottom: 9, fontSize: 14, lineHeight: 19, fontWeight: '700', color: COLORS.ink },
+  quickSuggestions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  quickSuggestionChip: { maxWidth: '100%', minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 11, borderWidth: 1, borderColor: COLORS.hairline, borderRadius: 18, backgroundColor: COLORS.canvas },
+  quickSuggestionText: { maxWidth: 150, fontSize: 12, lineHeight: 16, fontWeight: '600', color: COLORS.ink },
+  quickSaveButton: { marginTop: 24 },
   section: { marginBottom: 28 },
   sectionTitle: { fontSize: 20, lineHeight: 26, fontWeight: '600', color: COLORS.ink },
   sectionSubtitle: { marginTop: 3, fontSize: 14, lineHeight: 20, color: COLORS.muted },

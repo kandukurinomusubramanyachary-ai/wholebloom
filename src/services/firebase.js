@@ -46,7 +46,7 @@ function initialiseAuth(app) {
     ? FirebaseAuth.browserLocalPersistence
     : (() => {
       if (typeof FirebaseAuth.getReactNativePersistence !== 'function') {
-        throw new Error('Firebase Auth persistence is unavailable in this Android build.');
+        throw new Error('Firebase Auth persistence is unavailable in this native build.');
       }
       return FirebaseAuth.getReactNativePersistence(AsyncStorage);
     })();

@@ -20,7 +20,7 @@ import SplashScreen from '../screens/SplashScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import AppLockModal from '../components/AppLockModal';
 import { useReducedMotion } from '../components/Motion';
-import { COLORS } from '../utils/constants';
+import { COLORS, navigationColorsForTheme } from '../utils/constants';
 import { markStartupReady, setStartupStage } from '../diagnostics/startupDiagnostics';
 
 const Stack = createStackNavigator();
@@ -29,14 +29,7 @@ export default function RootNavigator() {
   const { state } = useApp();
   const navigationTheme = useMemo(() => ({
     dark: state.resolvedTheme === 'dark',
-    colors: {
-      primary: COLORS.brand,
-      background: COLORS.canvas,
-      card: COLORS.white,
-      text: COLORS.ink,
-      border: COLORS.hairline,
-      notification: COLORS.brand,
-    },
+    colors: navigationColorsForTheme(state.resolvedTheme),
   }), [state.resolvedTheme]);
   const reduceMotion = useReducedMotion();
   const [splashComplete, setSplashComplete] = useState(false);
@@ -111,7 +104,7 @@ export default function RootNavigator() {
           initialRouteName='Main'
           screenOptions={{
             headerShown: false,
-            cardStyle: { backgroundColor: COLORS.canvas },
+            cardStyle: { flex: 1, minHeight: 0, backgroundColor: COLORS.canvas },
             animationEnabled: !reduceMotion,
             transitionSpec: {
               open: {
@@ -163,8 +156,30 @@ export default function RootNavigator() {
           />
           <Stack.Screen name="Food" component={FoodScreen} />
           <Stack.Screen name="Movement" component={MovementScreen} />
-          <Stack.Screen name="DoctorReport" component={DoctorReportScreen} />
-          <Stack.Screen name="Profile" component={ProfileScreen} />
+          <Stack.Screen
+            name="DoctorReport"
+            component={DoctorReportScreen}
+            options={{
+              cardStyle: {
+                flex: 1,
+                minHeight: 0,
+                overflow: 'hidden',
+                backgroundColor: COLORS.canvas,
+              },
+            }}
+          />
+          <Stack.Screen
+            name="Profile"
+            component={ProfileScreen}
+            options={{
+              cardStyle: {
+                flex: 1,
+                minHeight: 0,
+                overflow: 'hidden',
+                backgroundColor: COLORS.canvas,
+              },
+            }}
+          />
         </Stack.Navigator>
       </NavigationContainer>
 

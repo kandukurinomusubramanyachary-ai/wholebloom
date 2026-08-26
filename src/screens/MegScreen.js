@@ -30,6 +30,7 @@ import {
 } from '../services/megLocalQueue';
 import { Entrance, useReducedMotion } from '../components/Motion';
 import { LotusMark } from '../components/BrandMark';
+const { createMegRevealPlan } = require('../services/megReveal');
 
 let idCounter = 0;
 
@@ -42,33 +43,47 @@ const PRIMARY_MODES = MEG_MODES.slice(0, 3).map((mode, index) => ({
 
 const CONVERSATION_STARTERS = [
   {
-    id: 'my-symptoms',
-    text: 'Help me understand my symptoms.',
+    id: 'my-cycle',
+    label: 'My cycle',
+    text: 'Help me understand my cycle.',
+    icon: 'water-outline',
     mode: null,
   },
   {
-    id: 'my-cycle',
-    text: 'Help me understand my cycle.',
+    id: 'food-cravings',
+    label: 'Food & cravings',
+    text: 'Can you help me think through food and cravings?',
+    icon: 'restaurant-outline',
+    mode: null,
+  },
+  {
+    id: 'my-energy',
+    label: 'Energy',
+    text: 'I want to talk about my energy today.',
+    icon: 'flash-outline',
     mode: null,
   },
   {
     id: 'my-mood',
+    label: 'Mood',
     text: 'I want to talk about my mood.',
-    mode: null,
-  },
-  {
-    id: 'food-ideas',
-    text: 'Can you help me think through food ideas?',
-    mode: null,
-  },
-  {
-    id: 'my-pattern',
-    text: 'Help me understand a pattern I noticed.',
+    icon: 'happy-outline',
     mode: null,
   },
 ];
 
 const INITIAL_MESSAGE_COUNT = 30;
+
+const WAITING_COPY = Object.freeze({
+  listen: ['I’m here.', 'Taking in what you shared…'],
+  understand: ['I’m here.', 'Looking at the details you shared…'],
+  plan: ['I’m here.', 'Finding one small next step…'],
+  conversation: ['I’m here.', 'Staying with the thread…'],
+  doctor: ['I’m here.', 'Organising the details carefully…'],
+  default: ['I’m here.', 'Taking in what you shared…'],
+  still: ['Still with you.', 'Thinking about what matters most…'],
+  care: ['Taking a little care.', 'Making this useful, not rushed.'],
+});
 
 function createId(prefix) {
   idCounter += 1;
@@ -181,7 +196,7 @@ function ModePicker({ selectedMode, onSelect, compact = false }) {
 function ConversationStarters({ onSelect, disabled }) {
   return (
     <View style={styles.promptSection}>
-      <Text style={styles.promptLabel}>If words feel hard, you can start here</Text>
+      <Text style={styles.promptLabel}>Start with</Text>
       <View style={styles.promptList}>
         {CONVERSATION_STARTERS.map((prompt) => (
           <Pressable
@@ -200,7 +215,10 @@ function ConversationStarters({ onSelect, disabled }) {
               disabled && styles.disabled,
             ]}
           >
-            <Text style={styles.promptText}>{prompt.text}</Text>
+            <View style={styles.promptIcon}>
+              <Ionicons name={prompt.icon} size={18} color={COLORS.brand} />
+            </View>
+            <Text style={styles.promptText}>{prompt.label}</Text>
           </Pressable>
         ))}
       </View>
@@ -256,6 +274,8 @@ function messageTime(value) {
 
 function MessageBubble({ message, onFeedback, onCopy, feedbackDisabled, animate = false }) {
   const isUser = message.role === 'user';
+  const revealComplete = message.revealComplete !== false;
+  const visibleText = revealComplete ? message.text : message.displayText;
 
   if (isUser) {
     const bubble = (
@@ -291,36 +311,57 @@ function MessageBubble({ message, onFeedback, onCopy, feedbackDisabled, animate 
       <View style={styles.assistantColumn}>
         <Text style={styles.assistantName}>{message.safety ? 'Important care note' : 'Meg'}</Text>
         <View style={[styles.assistantBubble, message.safety && styles.safetyBubble]}>
-          <Text selectable style={styles.messageText}>{message.text}</Text>
+          {revealComplete ? (
+            <Text selectable accessibilityLiveRegion='polite' style={styles.messageText}>
+              {message.text}
+            </Text>
+          ) : (
+            <View accessibilityElementsHidden importantForAccessibility='no-hide-descendants'>
+              <Text style={styles.messageText}>
+                {visibleText}
+                <Text style={styles.replyCursor}>▍</Text>
+              </Text>
+              <Text style={styles.replyingText}>Meg is replying…</Text>
+            </View>
+          )}
         </View>
-        <View style={styles.messageMetaRow}>
-          {messageTime(message.createdAt) ? (
-            <Text style={styles.messageTime}>{messageTime(message.createdAt)}</Text>
-          ) : null}
-          <Pressable
-            onPress={() => onCopy(message)}
-            accessibilityRole='button'
-            accessibilityLabel='Copy Meg message'
-            style={({ pressed, focused }) => [
-              styles.copyButton,
-              focused && styles.interactiveFocus,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Ionicons name='copy-outline' size={14} color={COLORS.muted} />
-            <Text style={styles.copyLabel}>Copy</Text>
-          </Pressable>
-        </View>
-        <FeedbackControls value={message.feedback} onSelect={(value) => onFeedback(message.id, value)} disabled={feedbackDisabled} />
+        {revealComplete ? (
+          <>
+            <View style={styles.messageMetaRow}>
+              {messageTime(message.createdAt) ? (
+                <Text style={styles.messageTime}>{messageTime(message.createdAt)}</Text>
+              ) : null}
+              <Pressable
+                onPress={() => onCopy(message)}
+                accessibilityRole='button'
+                accessibilityLabel='Copy Meg message'
+                style={({ pressed, focused }) => [
+                  styles.copyButton,
+                  focused && styles.interactiveFocus,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Ionicons name='copy-outline' size={14} color={COLORS.muted} />
+                <Text style={styles.copyLabel}>Copy</Text>
+              </Pressable>
+            </View>
+            <FeedbackControls value={message.feedback} onSelect={(value) => onFeedback(message.id, value)} disabled={feedbackDisabled} />
+          </>
+        ) : null}
       </View>
     </View>
   );
   return animate ? <Entrance distance={6} duration={230}>{bubble}</Entrance> : bubble;
 }
 
-function TypingBubble() {
+function TypingBubble({ mode, stage = 0 }) {
   const reduceMotion = useReducedMotion();
   const dots = useRef([0, 1, 2].map(() => new Animated.Value(0.38))).current;
+  const copy = stage >= 2
+    ? WAITING_COPY.care
+    : stage === 1
+      ? WAITING_COPY.still
+      : WAITING_COPY[mode] || WAITING_COPY.default;
 
   useEffect(() => {
     if (reduceMotion) return undefined;
@@ -355,14 +396,17 @@ function TypingBubble() {
               />
             ))}
           </View>
-          <Text style={styles.typingText}>Meg is thinking with you…</Text>
+          <View style={styles.waitingCopy}>
+            <Text style={styles.waitingTitle}>{copy[0]}</Text>
+            <Text style={styles.typingText}>{copy[1]}</Text>
+          </View>
         </View>
       </View>
     </Entrance>
   );
 }
 
-function StatusBanner({ type, text, actionLabel, onAction }) {
+function StatusBanner({ type, text, actionLabel, onAction, actionDisabled = false }) {
   const isError = type === 'error';
   return (
     <View
@@ -378,8 +422,14 @@ function StatusBanner({ type, text, actionLabel, onAction }) {
       {actionLabel && onAction ? (
         <Pressable
           onPress={onAction}
+          disabled={actionDisabled}
           accessibilityRole='button'
-          style={({ pressed }) => [styles.statusAction, pressed && styles.pressed]}
+          accessibilityState={{ disabled: actionDisabled }}
+          style={({ pressed }) => [
+            styles.statusAction,
+            pressed && styles.pressed,
+            actionDisabled && styles.disabled,
+          ]}
         >
           <Text style={styles.statusActionText}>{actionLabel}</Text>
         </Pressable>
@@ -388,7 +438,7 @@ function StatusBanner({ type, text, actionLabel, onAction }) {
   );
 }
 
-export default function MegScreen({ route }) {
+export default function MegScreen({ route, navigation }) {
   const {
     state,
     saveSettings,
@@ -413,12 +463,13 @@ export default function MegScreen({ route }) {
     state.settings,
     state.todayCheckin,
   ]);
-  const latestSaved = useMemo(() => sortNewestFirst(conversations)[0] || null, [conversations]);
+  const recentConversations = useMemo(() => sortNewestFirst(conversations).slice(0, 4), [conversations]);
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [selectedMode, setSelectedMode] = useState(null);
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
+  const [waitingStage, setWaitingStage] = useState(0);
   const [savingMemory, setSavingMemory] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [modePickerOpen, setModePickerOpen] = useState(false);
@@ -435,6 +486,12 @@ export default function MegScreen({ route }) {
   const inputRef = useRef(null);
   const latestMessageY = useRef(0);
   const sendLockRef = useRef(false);
+  const drawerProgress = useRef(new Animated.Value(0)).current;
+  const waitingTimersRef = useRef([]);
+  const revealTimerRef = useRef(null);
+  const revealRunRef = useRef(0);
+  const requestRunRef = useRef(0);
+  const screenFocusedRef = useRef(true);
 
   function scrollLatestMessageIntoView() {
     scrollRef.current?.scrollTo({
@@ -445,21 +502,21 @@ export default function MegScreen({ route }) {
 
   useEffect(() => {
     if (initialised.current) return;
-    if (latestSaved) {
-      setCurrentConversationId(latestSaved.id);
-      const loadedMessages = latestSaved.messages || [];
-      const loadedMode = latestSaved.mode || latestSaved.supportMode || null;
-      setMessages(loadedMessages);
-      setVisibleMessageCount(INITIAL_MESSAGE_COUNT);
-      setSelectedMode(loadedMode);
-      const recoverable = recoverableMegRequest(loadedMessages, latestSaved.id, loadedMode);
-      if (recoverable) {
-        setFailedRequest(recoverable);
-        setError('Meg could not finish this reply.');
-      }
-    }
     initialised.current = true;
-  }, [latestSaved]);
+  }, []);
+
+  useEffect(() => {
+    if (!manageOpen) {
+      drawerProgress.setValue(0);
+      return;
+    }
+    Animated.timing(drawerProgress, {
+      toValue: 1,
+      duration: reduceMotion ? 0 : 240,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+  }, [drawerProgress, manageOpen, reduceMotion]);
 
   useEffect(() => {
     if (!messages.length && !typing) return;
@@ -467,7 +524,25 @@ export default function MegScreen({ route }) {
       scrollRef.current?.scrollToEnd({ animated: !reduceMotion });
     }, 40);
     return () => clearTimeout(timer);
-  }, [messages, reduceMotion, typing]);
+  }, [messages.length, reduceMotion, typing]);
+
+  useEffect(() => {
+    const unsubscribeBlur = navigation?.addListener?.('blur', () => {
+      screenFocusedRef.current = false;
+      clearWaitingTimers();
+      cancelReveal(true);
+    });
+    const unsubscribeFocus = navigation?.addListener?.('focus', () => {
+      screenFocusedRef.current = true;
+    });
+    return () => {
+      unsubscribeBlur?.();
+      unsubscribeFocus?.();
+      screenFocusedRef.current = false;
+      clearWaitingTimers();
+      cancelReveal(false);
+    };
+  }, [navigation]);
 
   useEffect(() => {
     if (!composerFocused || !messages.length) return;
@@ -492,7 +567,56 @@ export default function MegScreen({ route }) {
     if (suggestedPrompt) setInput(suggestedPrompt);
   }, [route?.params?.prompt]);
 
+  function clearWaitingTimers() {
+    waitingTimersRef.current.forEach((timer) => clearTimeout(timer));
+    waitingTimersRef.current = [];
+  }
+
+  function beginWaitingStages() {
+    clearWaitingTimers();
+    setWaitingStage(0);
+    waitingTimersRef.current = [
+      setTimeout(() => setWaitingStage(1), 1400),
+      setTimeout(() => setWaitingStage(2), 4200),
+    ];
+  }
+
+  function cancelReveal(completeVisibleReply = true) {
+    revealRunRef.current += 1;
+    if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+    revealTimerRef.current = null;
+    if (!completeVisibleReply) return;
+    setMessages((current) => current.map((message) => (
+      message.revealComplete === false
+        ? { ...message, displayText: message.text, revealComplete: true }
+        : message
+    )));
+  }
+
+  function continueVerifiedReveal(messageId, frames, frameIndex = 1, runId = revealRunRef.current) {
+    if (frameIndex >= frames.length || runId !== revealRunRef.current) return;
+    const previousFrame = frames[frameIndex - 1];
+    revealTimerRef.current = setTimeout(() => {
+      if (runId !== revealRunRef.current) return;
+      const frame = frames[frameIndex];
+      const complete = frameIndex === frames.length - 1;
+      setMessages((current) => current.map((message) => (
+        message.id === messageId
+          ? { ...message, displayText: frame.text, revealComplete: complete }
+          : message
+      )));
+      if (complete) {
+        revealTimerRef.current = null;
+        return;
+      }
+      continueVerifiedReveal(messageId, frames, frameIndex + 1, runId);
+    }, previousFrame.delayMs);
+  }
+
   function resetConversation(message = '') {
+    requestRunRef.current += 1;
+    clearWaitingTimers();
+    cancelReveal(false);
     setCurrentConversationId(null);
     setMessages([]);
     setSelectedMode(null);
@@ -504,6 +628,38 @@ export default function MegScreen({ route }) {
     setConfirmAction(null);
     setNotice(message);
     setVisibleMessageCount(INITIAL_MESSAGE_COUNT);
+  }
+
+  function closeDrawer() {
+    setManageOpen(false);
+    setConfirmAction(null);
+  }
+
+  function openConversation(conversation) {
+    requestRunRef.current += 1;
+    clearWaitingTimers();
+    cancelReveal(false);
+    const loadedMessages = conversation?.messages || [];
+    const loadedMode = conversation?.mode || conversation?.supportMode || null;
+    setCurrentConversationId(conversation.id);
+    setMessages(loadedMessages);
+    setVisibleMessageCount(INITIAL_MESSAGE_COUNT);
+    setSelectedMode(loadedMode);
+    setInput('');
+    setNotice('');
+    const recoverable = recoverableMegRequest(loadedMessages, conversation.id, loadedMode);
+    setFailedRequest(recoverable);
+    setError(recoverable ? 'Meg could not finish this reply.' : null);
+    closeDrawer();
+  }
+
+  function navigateFromDrawer(routeName, nested = false) {
+    closeDrawer();
+    if (nested) {
+      navigation.navigate(routeName);
+      return;
+    }
+    navigation.getParent()?.navigate(routeName);
   }
 
   async function persistConversation(id, nextMessages, mode, qaTiming) {
@@ -529,6 +685,10 @@ export default function MegScreen({ route }) {
   }
 
   async function requestReply(request, qaTiming = createClientMegQaTiming()) {
+    const requestRunId = requestRunRef.current + 1;
+    requestRunRef.current = requestRunId;
+    cancelReveal(true);
+    beginWaitingStages();
     const pendingMessages = setMegMessageDelivery(
       request.baseMessages,
       request.messageId,
@@ -556,6 +716,7 @@ export default function MegScreen({ route }) {
       const memory = memoryEnabled
         ? collectRememberedMessages(conversations, request.conversationId)
         : [];
+      const providerStartedAt = Date.now();
       const result = await megService.send({
         message: request.message,
         conversationId: request.conversationId,
@@ -568,6 +729,12 @@ export default function MegScreen({ route }) {
         memory,
         ...(qaTiming ? { qaTiming } : {}),
       });
+      const providerWaitMs = Date.now() - providerStartedAt;
+      const requestIsCurrent = requestRunId === requestRunRef.current;
+      if (requestIsCurrent) {
+        clearWaitingTimers();
+        setTyping(false);
+      }
       const resolvedConversationId = result.conversationId || request.conversationId;
       const assistantMessage = {
         id: result.messageId || createId('meg-message'),
@@ -576,6 +743,7 @@ export default function MegScreen({ route }) {
         createdAt: new Date().toISOString(),
         safety: result.safety || null,
         source: result.source || 'local',
+        revealComplete: true,
       };
       const sentMessages = setMegMessageDelivery(
         pendingMessages,
@@ -583,10 +751,39 @@ export default function MegScreen({ route }) {
         'sent'
       );
       const nextMessages = [...sentMessages, assistantMessage];
-      setCurrentConversationId(resolvedConversationId);
-      setMessages(nextMessages);
-      if (qaTiming) {
+      const revealPlan = requestIsCurrent
+        && screenFocusedRef.current
+        && !reduceMotion
+        && !result.urgent
+        && !result.safety
+        ? createMegRevealPlan(result.text, providerWaitMs)
+        : [];
+      const shouldReveal = revealPlan.length > 1;
+      const presentedMessages = shouldReveal
+        ? [
+            ...sentMessages,
+            {
+              ...assistantMessage,
+              displayText: revealPlan[0].text,
+              revealComplete: false,
+            },
+          ]
+        : nextMessages;
+      if (requestIsCurrent) {
+        setCurrentConversationId(resolvedConversationId);
+        setMessages(presentedMessages);
+      }
+      if (qaTiming && requestIsCurrent) {
         requestAnimationFrame(() => qaTiming.markVisibleReply());
+      }
+      if (requestIsCurrent && shouldReveal) {
+        revealRunRef.current += 1;
+        continueVerifiedReveal(
+          assistantMessage.id,
+          revealPlan,
+          1,
+          revealRunRef.current
+        );
       }
 
       try {
@@ -601,18 +798,22 @@ export default function MegScreen({ route }) {
       }
       qaTiming?.completeSuccess();
     } catch (requestError) {
+      const requestIsCurrent = requestRunId === requestRunRef.current;
+      if (requestIsCurrent) clearWaitingTimers();
       const failedMessages = setMegMessageDelivery(
         pendingMessages,
         request.messageId,
         'failed'
       );
       const retryRequest = { ...pendingRequest, baseMessages: failedMessages };
-      setMessages(failedMessages);
-      setError(
-        requestError?.message
-          || 'Meg couldn\'t respond right now. Please try again.'
-      );
-      setFailedRequest(retryRequest);
+      if (requestIsCurrent) {
+        setMessages(failedMessages);
+        setError(
+          requestError?.message
+            || 'Meg couldn\'t respond right now. Please try again.'
+        );
+        setFailedRequest(retryRequest);
+      }
       try {
         await persistConversation(
           request.conversationId,
@@ -625,8 +826,11 @@ export default function MegScreen({ route }) {
       }
       qaTiming?.completeFailure();
     } finally {
-      setTyping(false);
-      if (Platform.OS === 'web') {
+      if (requestRunId === requestRunRef.current) {
+        clearWaitingTimers();
+        setTyping(false);
+      }
+      if (Platform.OS === 'web' && requestRunId === requestRunRef.current) {
         setTimeout(() => inputRef.current?.focus(), 60);
       }
     }
@@ -635,6 +839,8 @@ export default function MegScreen({ route }) {
   async function handleSend(overrideText, overrideMode) {
     const messageText = String(overrideText ?? input).trim();
     if (!messageText || typing || sendLockRef.current) return;
+    clearWaitingTimers();
+    cancelReveal(true);
     sendLockRef.current = true;
     const qaTiming = createClientMegQaTiming();
 
@@ -647,7 +853,12 @@ export default function MegScreen({ route }) {
       createdAt: new Date().toISOString(),
       deliveryStatus: 'pending',
     };
-    const baseMessages = [...messages, userMessage];
+    const completedMessages = messages.map((message) => (
+      message.revealComplete === false
+        ? { ...message, displayText: message.text, revealComplete: true }
+        : message
+    ));
+    const baseMessages = [...completedMessages, userMessage];
 
     setCurrentConversationId(conversationId);
     setMessages(baseMessages);
@@ -657,11 +868,6 @@ export default function MegScreen({ route }) {
     setTyping(true);
 
     try {
-      try {
-        await persistConversation(conversationId, baseMessages, mode, qaTiming);
-      } catch (saveError) {
-        setNotice('Your message is still here. Bloom will keep trying to save the conversation.');
-      }
       await requestReply({
         message: messageText,
         messageId: userMessage.id,
@@ -669,6 +875,16 @@ export default function MegScreen({ route }) {
         conversationId,
         baseMessages,
       }, qaTiming);
+    } finally {
+      sendLockRef.current = false;
+    }
+  }
+
+  async function handleRetry() {
+    if (!failedRequest || typing || sendLockRef.current) return;
+    sendLockRef.current = true;
+    try {
+      await requestReply(failedRequest);
     } finally {
       sendLockRef.current = false;
     }
@@ -766,6 +982,33 @@ export default function MegScreen({ route }) {
   const requestErrorText = requestLooksUnavailable
     ? 'Meg is unavailable for a moment. Your message is still here.'
     : 'Meg couldn’t respond just now. Your message is still here.';
+  const energyValue = context.todayCheckin?.energy;
+  const hasLowEnergy = typeof energyValue === 'number'
+    && Number.isFinite(energyValue)
+    && energyValue <= 4;
+  const contextNotice = hasLowEnergy
+    ? {
+        title: 'Low energy today',
+        detail: 'Talk it through with Meg',
+        prompt: 'My energy feels low today. Can we talk it through?',
+      }
+    : context.todayCheckin
+      ? {
+          title: 'Your check-in is ready',
+          detail: 'Talk through what you logged',
+          prompt: 'Can we talk through how I am feeling today?',
+        }
+      : context.currentPhase
+        ? {
+            title: `${context.currentPhase} support`,
+            detail: 'Ask what might feel supportive today',
+            prompt: `I am in the ${context.currentPhase} phase. What might support me today?`,
+          }
+        : {
+            title: 'Need a place to start?',
+            detail: 'Talk it through with Meg',
+            prompt: 'I am not sure where to start. Can we talk it through?',
+          };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -775,81 +1018,38 @@ export default function MegScreen({ route }) {
       >
         <View style={styles.shell}>
           <View style={styles.header}>
-            <View style={styles.headerIdentity}>
-              <View style={styles.headerMark} accessibilityElementsHidden>
-                <LotusMark size={27} color={COLORS.logo} />
-              </View>
-              <View style={styles.headerCopy}>
-                <Text style={styles.title}>Meg</Text>
-                <View style={styles.statusLine}>
-                  <View style={styles.statusDot} />
-                  <Text style={styles.subtitle}>Here with you</Text>
-                </View>
-              </View>
+            <Pressable
+              onPress={() => setManageOpen(true)}
+              disabled={typing}
+              accessibilityRole='button'
+              accessibilityLabel='Open Meg menu'
+              accessibilityState={{ expanded: manageOpen, disabled: typing }}
+              style={({ pressed, focused }) => [
+                styles.menuButton,
+                focused && styles.interactiveFocus,
+                pressed && styles.pressed,
+                typing && styles.disabled,
+              ]}
+            >
+              <Ionicons name='time-outline' size={22} color={COLORS.muted} />
+            </Pressable>
+            <View style={styles.centeredHeaderTitle} pointerEvents='none'>
+              <Text style={styles.title}>Meg</Text>
             </View>
-            <View style={styles.headerActions}>
-              <Pressable
-                onPress={() => resetConversation('A new conversation is ready.')}
-                disabled={typing}
-                accessibilityRole='button'
-                accessibilityLabel='Start a new conversation'
-                accessibilityState={{ disabled: typing }}
-                style={({ pressed, hovered, focused }) => [
-                  styles.iconButton,
-                  styles.interactiveMotion,
-                  hovered && styles.iconButtonHovered,
-                  focused && styles.interactiveFocus,
-                  pressed && styles.pressed,
-                  typing && styles.disabled,
-                ]}
-              >
-                <Ionicons name='create-outline' size={21} color={COLORS.ink} />
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  setManageOpen(true);
-                  setConfirmAction(null);
-                }}
-                disabled={typing}
-                accessibilityRole='button'
-                accessibilityLabel='Open Meg privacy and conversation controls'
-                accessibilityState={{ expanded: manageOpen, disabled: typing }}
-                style={({ pressed, hovered, focused }) => [
-                  styles.iconButton,
-                  styles.interactiveMotion,
-                  hovered && styles.iconButtonHovered,
-                  focused && styles.interactiveFocus,
-                  pressed && styles.pressed,
-                  typing && styles.disabled,
-                ]}
-              >
-                <Ionicons name='ellipsis-horizontal' size={22} color={COLORS.ink} />
-              </Pressable>
-            </View>
+            <Pressable
+              onPress={() => navigation.getParent()?.navigate('Profile')}
+              accessibilityRole='button'
+              accessibilityLabel='Open your profile'
+              style={({ pressed, hovered, focused }) => [
+                styles.menuButton,
+                hovered && styles.iconButtonHovered,
+                focused && styles.interactiveFocus,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Ionicons name='person-circle-outline' size={23} color={COLORS.muted} />
+            </Pressable>
           </View>
-
-          <Pressable
-            onPress={() => {
-              setManageOpen(true);
-              setConfirmAction(null);
-            }}
-            hitSlop={{ top: 3, bottom: 3 }}
-            accessibilityRole='button'
-            accessibilityLabel='Open privacy and memory controls'
-            style={({ pressed, hovered, focused }) => [
-              styles.privacyLine,
-              styles.interactiveMotion,
-              hovered && styles.privacyLineHovered,
-              focused && styles.interactiveFocus,
-              pressed && styles.privacyLinePressed,
-            ]}
-          >
-            <Ionicons name='lock-closed-outline' size={13} color={COLORS.sage} />
-            <Text style={styles.privacyLineText}>
-              Stored securely · You control what Meg remembers
-            </Text>
-            <Ionicons name='chevron-forward' size={14} color={COLORS.muted} />
-          </Pressable>
 
           {!online ? (
             <View style={styles.statusStack}>
@@ -895,27 +1095,91 @@ export default function MegScreen({ route }) {
             {!hasConversation ? (
               <Entrance distance={8} duration={240}>
                 <View style={styles.welcome}>
-                  <View style={styles.welcomeAvatar} accessibilityElementsHidden>
-                    <LotusMark size={40} color={COLORS.logo} />
+                  <View style={styles.welcomeCopy}>
+                    <Text style={styles.welcomeTitle}>What&apos;s on your mind?</Text>
+                    <Text style={styles.welcomeBody}>Cycle, cravings, energy, or just today.</Text>
                   </View>
-                  <Text style={styles.welcomeTitle}>Hey, I’m Meg.</Text>
-                  <Text style={styles.welcomeBody}>
-                    You don’t need to explain everything perfectly. Start with what feels heaviest right now.
-                  </Text>
+
+                  <View
+                    style={[
+                      styles.composer,
+                      styles.inlineComposer,
+                      composerFocused && styles.composerFocused,
+                      composerFocused && !reduceMotion && styles.composerLifted,
+                    ]}
+                  >
+                    <TextInput
+                      ref={inputRef}
+                      value={input}
+                      onChangeText={setInput}
+                      editable={!typing}
+                      multiline
+                      maxLength={600}
+                      placeholder='Ask Meg anything...'
+                      placeholderTextColor={COLORS.muted}
+                      selectionColor={COLORS.brand}
+                      style={styles.input}
+                      textAlignVertical='top'
+                      scrollEnabled
+                      blurOnSubmit={false}
+                      onFocus={() => setComposerFocused(true)}
+                      onBlur={() => setComposerFocused(false)}
+                      onKeyPress={handleComposerKeyPress}
+                      accessibilityLabel='Message Meg'
+                      accessibilityHint='On desktop, press Enter to send or Shift and Enter for a new line.'
+                    />
+                    <Pressable
+                      onPress={() => handleSend()}
+                      disabled={!input.trim() || typing}
+                      accessibilityRole='button'
+                      accessibilityLabel='Send message to Meg'
+                      accessibilityState={{ disabled: !input.trim() || typing, busy: typing }}
+                      style={({ pressed, hovered, focused }) => [
+                        styles.sendButton,
+                        styles.interactiveMotion,
+                        hovered && input.trim() && !typing && styles.sendButtonHovered,
+                        focused && styles.interactiveFocus,
+                        (!input.trim() || typing) && styles.sendButtonDisabled,
+                        pressed && input.trim() && !typing && styles.pressed,
+                      ]}
+                    >
+                      <Ionicons
+                        name={typing ? 'ellipsis-horizontal' : 'arrow-up'}
+                        size={20}
+                        color={input.trim() && !typing ? COLORS.onBrand : COLORS.muted}
+                      />
+                    </Pressable>
+                  </View>
+
+                  <Pressable
+                    onPress={() => handleSend(contextNotice.prompt)}
+                    disabled={typing}
+                    accessibilityRole='button'
+                    accessibilityLabel={`${contextNotice.title}. ${contextNotice.detail}`}
+                    accessibilityState={{ disabled: typing }}
+                    style={({ pressed, hovered, focused }) => [
+                      styles.contextNotice,
+                      styles.interactiveMotion,
+                      hovered && styles.contextNoticeHovered,
+                      focused && styles.interactiveFocus,
+                      pressed && styles.contextNoticePressed,
+                      typing && styles.disabled,
+                    ]}
+                  >
+                    <View style={styles.contextNoticeIcon}>
+                      <Ionicons name='sparkles-outline' size={15} color={COLORS.brand} />
+                    </View>
+                    <View style={styles.contextNoticeCopy}>
+                      <Text style={styles.contextNoticeTitle}>{contextNotice.title}</Text>
+                      <Text style={styles.contextNoticeDetail}>{contextNotice.detail}</Text>
+                    </View>
+                    <Ionicons name='arrow-forward' size={17} color={COLORS.muted} />
+                  </Pressable>
 
                   <ConversationStarters
-                    onSelect={(prompt) => handleSend(prompt.text, prompt.mode)}
                     disabled={typing}
+                    onSelect={(prompt) => handleSend(prompt.text, prompt.mode)}
                   />
-
-                  <View style={styles.modeSection}>
-                    <Text style={styles.modePrompt}>How should I be with you right now?</Text>
-                    <ModePicker selectedMode={selectedMode} onSelect={setSelectedMode} />
-                  </View>
-
-                  <Text style={styles.firstUseSafety}>
-                    Meg offers support, not medical diagnosis.
-                  </Text>
                 </View>
               </Entrance>
             ) : (
@@ -952,21 +1216,23 @@ export default function MegScreen({ route }) {
                     />
                   </View>
                 ))}
-                {typing ? <TypingBubble /> : null}
+                {typing ? <TypingBubble mode={selectedMode} stage={waitingStage} /> : null}
                 {error && failedRequest ? (
                   <StatusBanner
                     type='error'
                     text={requestErrorText}
                     actionLabel='Try again'
-                    onAction={() => requestReply(failedRequest)}
+                    onAction={handleRetry}
+                    actionDisabled={typing}
                   />
                 ) : null}
               </View>
             )}
           </ScrollView>
 
-          <View style={styles.composerWrap}>
-            {hasConversation ? (
+          {hasConversation ? (
+            <View style={styles.composerWrap}>
+            {hasConversation || modePickerOpen ? (
               <View style={styles.modeDock}>
                 <Pressable
                   onPress={() => setModePickerOpen((value) => !value)}
@@ -1013,6 +1279,18 @@ export default function MegScreen({ route }) {
                 composerFocused && !reduceMotion && styles.composerLifted,
               ]}
             >
+              <Pressable
+                onPress={() => setModePickerOpen((value) => !value)}
+                accessibilityRole='button'
+                accessibilityLabel='Choose how Meg should support you'
+                style={({ pressed, focused }) => [
+                  styles.addButton,
+                  focused && styles.interactiveFocus,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Ionicons name='add' size={23} color={COLORS.ink} />
+              </Pressable>
               <TextInput
                 ref={inputRef}
                 value={input}
@@ -1020,7 +1298,7 @@ export default function MegScreen({ route }) {
                 editable={!typing}
                 multiline
                 maxLength={600}
-                placeholder='Tell Meg what’s on your mind…'
+                placeholder='Ask Meg anything...'
                 placeholderTextColor={COLORS.muted}
                 selectionColor={COLORS.brand}
                 style={styles.input}
@@ -1051,197 +1329,132 @@ export default function MegScreen({ route }) {
                 <Ionicons
                   name={typing ? 'ellipsis-horizontal' : 'arrow-up'}
                   size={21}
-                  color={input.trim() && !typing ? COLORS.white : COLORS.muted}
+                  color={input.trim() && !typing ? COLORS.onBrand : COLORS.muted}
                 />
               </Pressable>
             </View>
-          </View>
+            </View>
+          ) : null}
 
           <Modal
             visible={manageOpen}
             transparent
             animationType='none'
             statusBarTranslucent
-            onRequestClose={() => {
-              setManageOpen(false);
-              setConfirmAction(null);
-            }}
+            onRequestClose={closeDrawer}
           >
-            <View style={styles.modalLayer} accessibilityViewIsModal>
+            <View style={styles.drawerModalLayer} accessibilityViewIsModal>
               <Pressable
-                style={StyleSheet.absoluteFillObject}
-                onPress={() => {
-                  setManageOpen(false);
-                  setConfirmAction(null);
-                }}
+                style={styles.drawerScrim}
+                onPress={closeDrawer}
                 accessibilityRole='button'
-                accessibilityLabel='Close privacy controls'
+                accessibilityLabel='Close Meg menu'
               />
-              <Entrance
-                style={styles.managePanel}
-                distance={reduceMotion ? 0 : 10}
-                duration={210}
-                initialOpacity={reduceMotion ? 1 : 0.9}
+              <Animated.View
+                style={[
+                  styles.drawer,
+                  !reduceMotion && {
+                    transform: [{
+                      translateX: drawerProgress.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [-330, 0],
+                      }),
+                    }],
+                  },
+                ]}
               >
-                <View style={styles.manageHeading}>
-                  <View style={styles.flex}>
-                    <Text style={styles.manageTitle}>Your space with Meg</Text>
-                    <Text style={styles.manageMeta}>
-                      Privacy, context and conversation controls
-                    </Text>
-                  </View>
+                <View style={styles.drawerHeader}>
+                  <Text style={styles.drawerBrand}>Bloom</Text>
                   <Pressable
-                    onPress={() => {
-                      setManageOpen(false);
-                      setConfirmAction(null);
-                    }}
+                    onPress={closeDrawer}
                     accessibilityRole='button'
-                    accessibilityLabel='Close privacy controls'
-                    style={({ pressed, focused }) => [
-                      styles.closeButton,
-                      focused && styles.interactiveFocus,
-                      pressed && styles.pressed,
-                    ]}
+                    accessibilityLabel='Close Meg menu'
+                    style={({ pressed }) => [styles.drawerIconButton, pressed && styles.drawerPressed]}
                   >
-                    <Ionicons name='close' size={21} color={COLORS.ink} />
+                    <Ionicons name='close' size={26} color='#F3F0EE' />
                   </Pressable>
                 </View>
 
-                <ScrollView
-                  contentContainerStyle={styles.manageContent}
-                  keyboardShouldPersistTaps='handled'
-                  showsVerticalScrollIndicator={false}
-                >
-                  <View style={styles.memoryRow}>
-                    <View style={styles.memoryIcon}>
-                      <Ionicons
-                        name={memoryEnabled ? 'save-outline' : 'lock-closed-outline'}
-                        size={18}
-                        color={memoryEnabled ? COLORS.sage : COLORS.brand}
-                      />
-                    </View>
-                    <View style={styles.memoryCopy}>
-                      <Text style={styles.memoryTitle}>
-                        {memoryEnabled ? 'Memory is on' : 'Memory is off'}
-                      </Text>
-                      <Text style={styles.memoryDescription}>
-                        {memoryEnabled
-                          ? 'Prior conversations can inform replies. Chats save securely to your account.'
-                          : 'Prior conversations won’t inform replies. Chats still save securely to your account.'}
-                      </Text>
-                    </View>
+                <View style={styles.newChatWrap}>
+                  <Pressable
+                    onPress={() => resetConversation('')}
+                    disabled={typing}
+                    accessibilityRole='button'
+                    style={({ pressed }) => [styles.newChatButton, pressed && styles.drawerPressed]}
+                  >
+                    <Ionicons name='add' size={19} color={COLORS.onBrand} />
+                    <Text style={styles.newChatText}>New chat</Text>
+                  </Pressable>
+                </View>
+
+                <View style={styles.drawerNav}>
+                  {[
+                    { label: 'Chats', icon: 'chatbubble-outline', active: true, onPress: closeDrawer },
+                    { label: 'Doctor report', icon: 'document-text-outline', onPress: () => navigateFromDrawer('DoctorReport') },
+                    { label: 'Health logs', icon: 'shield-checkmark-outline', onPress: () => navigateFromDrawer('Timeline', true) },
+                  ].map((item) => (
                     <Pressable
-                      onPress={() => handleMemoryToggle(!memoryEnabled)}
-                      disabled={savingMemory || typing}
-                      accessibilityRole='switch'
-                      accessibilityLabel='Allow Meg to remember conversations'
-                      accessibilityHint='Controls whether prior conversations inform Meg replies'
-                      accessibilityState={{ checked: memoryEnabled, disabled: savingMemory || typing }}
-                      style={({ pressed }) => [
-                        styles.switchTouch,
-                        pressed && styles.pressed,
-                        (savingMemory || typing) && styles.disabled,
-                      ]}
+                      key={item.label}
+                      onPress={item.onPress}
+                      accessibilityRole='button'
+                      style={({ pressed }) => [styles.drawerNavItem, pressed && styles.drawerPressed]}
                     >
-                      <Switch
-                        value={memoryEnabled}
-                        accessible={false}
-                        style={styles.nonInteractive}
-                        trackColor={{ false: COLORS.hairline, true: COLORS.sageLight }}
-                        thumbColor={memoryEnabled ? COLORS.sage : COLORS.white}
-                      />
+                      <Ionicons name={item.icon} size={22} color={item.active ? '#F3F0EE' : '#BDB8B6'} />
+                      <Text style={[styles.drawerNavText, !item.active && styles.drawerMutedText]}>{item.label}</Text>
                     </Pressable>
-                  </View>
+                  ))}
+                </View>
 
-                  <ContextPanel context={context} />
-
-                  <View style={styles.safetyNote}>
-                    <Ionicons name='shield-checkmark-outline' size={18} color={COLORS.sage} />
-                    <Text style={styles.safetyNoteText}>
-                      Meg supports reflection and small steps. It doesn’t replace medical or crisis care.
-                    </Text>
-                  </View>
-
-                  {!confirmAction ? (
-                    <View style={styles.manageActions}>
-                      <Text style={styles.manageSectionLabel}>
-                        {conversations.length} saved conversation{conversations.length === 1 ? '' : 's'}
-                      </Text>
+                <ScrollView style={styles.drawerRecentScroll} contentContainerStyle={styles.recentList} showsVerticalScrollIndicator={false}>
+                  <Text style={styles.recentLabel}>RECENT</Text>
+                  {recentConversations.length ? recentConversations.map((conversation) => {
+                    const active = conversation.id === currentConversationId;
+                    return (
                       <Pressable
-                        onPress={() => setConfirmAction('current')}
-                        disabled={!hasConversation}
+                        key={conversation.id}
+                        onPress={() => openConversation(conversation)}
                         accessibilityRole='button'
-                        accessibilityState={{ disabled: !hasConversation }}
-                        style={({ pressed, hovered, focused }) => [
-                          styles.manageAction,
-                          styles.interactiveMotion,
-                          hovered && styles.manageActionPressed,
-                          focused && styles.interactiveFocus,
-                          pressed && styles.manageActionPressed,
-                          !hasConversation && styles.disabled,
+                        style={({ pressed }) => [
+                          styles.recentItem,
+                          active && styles.recentItemActive,
+                          pressed && styles.drawerPressed,
                         ]}
                       >
-                        <Ionicons name='trash-outline' size={18} color={COLORS.body} />
-                        <Text style={styles.manageActionText}>Clear current conversation</Text>
+                        <Text numberOfLines={1} style={[styles.recentText, active && styles.recentTextActive]}>
+                          {conversation.title || 'Conversation with Meg'}
+                        </Text>
                       </Pressable>
-                      <Pressable
-                        onPress={() => setConfirmAction('history')}
-                        disabled={!conversations.length}
-                        accessibilityRole='button'
-                        accessibilityState={{ disabled: !conversations.length }}
-                        style={({ pressed, hovered, focused }) => [
-                          styles.manageAction,
-                          styles.interactiveMotion,
-                          hovered && styles.manageActionPressed,
-                          focused && styles.interactiveFocus,
-                          pressed && styles.manageActionPressed,
-                          !conversations.length && styles.disabled,
-                        ]}
-                      >
-                        <Ionicons name='albums-outline' size={18} color={COLORS.body} />
-                        <Text style={styles.manageActionText}>Clear all saved history</Text>
-                      </Pressable>
-                    </View>
-                  ) : (
-                    <View style={styles.confirmPanel}>
-                      <Text style={styles.confirmText}>
-                        {confirmAction === 'history'
-                          ? 'Clear every saved Meg conversation from your Bloom account?'
-                          : 'Clear this conversation from your Bloom account?'}
-                      </Text>
-                      <View style={styles.confirmButtons}>
-                        <Pressable
-                          onPress={() => setConfirmAction(null)}
-                          disabled={clearingConversation}
-                          accessibilityRole='button'
-                          accessibilityState={{ disabled: clearingConversation }}
-                          style={({ pressed, focused }) => [
-                            styles.confirmButton,
-                            focused && styles.interactiveFocus,
-                            pressed && styles.pressed,
-                          ]}
-                        >
-                          <Text style={styles.confirmCancelText}>Keep it</Text>
-                        </Pressable>
-                        <Pressable
-                          onPress={confirmClear}
-                          disabled={clearingConversation}
-                          accessibilityRole='button'
-                          accessibilityState={{ disabled: clearingConversation, busy: clearingConversation }}
-                          style={({ pressed, focused }) => [
-                            styles.confirmButton,
-                            styles.confirmDelete,
-                            focused && styles.interactiveFocus,
-                            pressed && styles.pressed,
-                          ]}
-                        >
-                          <Text style={styles.confirmDeleteText}>{clearingConversation ? 'Clearingâ€¦' : 'Clear'}</Text>
-                        </Pressable>
-                      </View>
-                    </View>
+                    );
+                  }) : (
+                    <Text style={styles.emptyRecent}>Your recent chats will appear here.</Text>
                   )}
                 </ScrollView>
-              </Entrance>
+
+                <View style={styles.drawerProfile}>
+                  <Pressable
+                    onPress={() => navigateFromDrawer('Profile')}
+                    accessibilityRole='button'
+                    style={({ pressed }) => [styles.profileIdentity, pressed && styles.drawerPressed]}
+                  >
+                    <View style={styles.profileAvatar}>
+                      <Text style={styles.profileInitial}>
+                        {String(state.profile?.preferredName || state.profile?.name || 'You').trim().charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                    <Text numberOfLines={1} style={styles.profileName}>
+                      {state.profile?.preferredName || state.profile?.name || 'Your profile'}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => navigateFromDrawer('Preferences')}
+                    accessibilityRole='button'
+                    accessibilityLabel='Open settings'
+                    style={({ pressed }) => [styles.drawerIconButton, pressed && styles.drawerPressed]}
+                  >
+                    <Ionicons name='settings-outline' size={21} color='#BDB8B6' />
+                  </Pressable>
+                </View>
+              </Animated.View>
             </View>
           </Modal>
         </View>
@@ -1254,12 +1467,12 @@ const styles = createThemedStyles({
   safeArea: {
     flex: 1,
     minHeight: 0,
-    backgroundColor: COLORS.surfaceWarm,
+    backgroundColor: COLORS.canvas,
   },
   keyboardView: {
     flex: 1,
     minHeight: 0,
-    backgroundColor: COLORS.surfaceWarm,
+    backgroundColor: COLORS.canvas,
   },
   shell: {
     flex: 1,
@@ -1267,7 +1480,7 @@ const styles = createThemedStyles({
     width: '100%',
     maxWidth: MEG_SHELL_WIDTH,
     alignSelf: 'center',
-    backgroundColor: COLORS.splash,
+    backgroundColor: COLORS.canvas,
     ...Platform.select({
       web: {
         borderLeftWidth: 1,
@@ -1295,16 +1508,29 @@ const styles = createThemedStyles({
   nonInteractive: { pointerEvents: 'none' },
 
   header: {
-    minHeight: 66,
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.hairlineSoft,
-    backgroundColor: COLORS.splash,
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    backgroundColor: COLORS.canvas,
     zIndex: 20,
   },
+  menuButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  centeredHeaderTitle: {
+    position: 'absolute',
+    left: 64,
+    right: 64,
+    alignItems: 'center',
+  },
+  headerSpacer: { width: 44, height: 44 },
   headerIdentity: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
   headerMark: {
     width: 38,
@@ -1316,7 +1542,7 @@ const styles = createThemedStyles({
   },
   headerCopy: { flex: 1, paddingRight: 8 },
   title: {
-    fontSize: 18,
+    fontSize: 17,
     lineHeight: 22,
     fontWeight: '700',
     color: COLORS.ink,
@@ -1363,7 +1589,7 @@ const styles = createThemedStyles({
     borderRadius: LAYOUT.controlRadius,
   },
   offlineBanner: { backgroundColor: COLORS.surfaceWarm },
-  errorBanner: { backgroundColor: '#FDF1EF' },
+  errorBanner: { backgroundColor: COLORS.surfaceWarm },
   statusText: { flex: 1, fontSize: 13, lineHeight: 18, color: COLORS.body },
   statusAction: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 6 },
   statusActionText: {
@@ -1385,65 +1611,149 @@ const styles = createThemedStyles({
   scroll: { flex: 1, minHeight: 0 },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 18,
-    paddingTop: 18,
-    paddingBottom: 22,
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 20,
   },
-  emptyScrollContent: { justifyContent: 'center' },
+  emptyScrollContent: { justifyContent: 'flex-start' },
   conversationScrollContent: { paddingTop: 20, paddingBottom: 24 },
 
   welcome: {
-    alignItems: 'center',
-    paddingTop: 8,
-    paddingBottom: 8,
+    alignItems: 'stretch',
+    width: '100%',
+    paddingTop: 4,
+    paddingBottom: 4,
   },
-  welcomeAvatar: {
-    width: 66,
-    height: 62,
+  welcomeCopy: {
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-    borderRadius: 16,
-    backgroundColor: COLORS.brandSoft,
+    gap: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    borderWidth: 1,
+    borderColor: COLORS.hairlineSoft,
+    borderRadius: 18,
+    backgroundColor: COLORS.ivory,
   },
   welcomeTitle: {
-    fontSize: 24,
-    lineHeight: 30,
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: '700',
     color: COLORS.ink,
-    letterSpacing: -0.3,
+    letterSpacing: -0.5,
     textAlign: 'center',
   },
   welcomeBody: {
-    maxWidth: 342,
-    marginTop: 7,
-    fontSize: 15,
-    lineHeight: 22,
-    color: COLORS.body,
-    textAlign: 'center',
-  },
-
-  promptSection: { width: '100%', marginTop: 25 },
-  promptLabel: {
-    marginBottom: 10,
+    maxWidth: 390,
     fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '600',
+    lineHeight: 18,
     color: COLORS.muted,
     textAlign: 'center',
   },
-  promptList: { gap: 8 },
-  promptButton: {
-    minHeight: 56,
+  quickLinks: {
+    maxWidth: 390,
+    marginTop: 28,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
     justifyContent: 'center',
+    gap: 5,
+  },
+  quickLink: { minHeight: 28, justifyContent: 'center', paddingHorizontal: 1, borderRadius: 4 },
+  quickLinkPressed: { opacity: 0.58 },
+  quickLinkText: { fontSize: 14, lineHeight: 20, color: '#5F5E5E' },
+  quickLinkDivider: { fontSize: 14, lineHeight: 20, color: '#E5E2E0' },
+  suggestionList: { width: '100%', gap: 16, marginTop: 56 },
+  suggestionOuter: { width: '100%', padding: 8, borderRadius: 22 },
+  suggestionHovered: { transform: [{ scale: 0.99 }] },
+  suggestionPressed: { opacity: 0.82, transform: [{ scale: 0.98 }] },
+  suggestionCard: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    ...Platform.select({
+      web: { boxShadow: '0 2px 6px rgba(0,0,0,0.04), 0 4px 8px rgba(0,0,0,0.10)' },
+      ios: { shadowColor: '#000000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.1, shadowRadius: 6 },
+      android: { elevation: 3 },
+    }),
+  },
+  suggestionIcon: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+  suggestionText: { flex: 1, fontSize: 16, lineHeight: 24, color: '#1B1C1B' },
+
+  contextNotice: {
+    width: '100%',
+    minHeight: 56,
+    marginTop: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
     paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.hairline,
+    borderRadius: 16,
+    backgroundColor: COLORS.white,
+  },
+  contextNoticeHovered: {
+    borderColor: COLORS.borderStrong,
     backgroundColor: COLORS.surfaceSoft,
   },
-  promptHovered: { backgroundColor: COLORS.brandSoft },
-  promptPressed: { backgroundColor: COLORS.brandSoft },
-  promptText: { fontSize: 14, lineHeight: 20, color: COLORS.ink, textAlign: 'center' },
+  contextNoticePressed: { opacity: 0.78, transform: [{ scale: 0.99 }] },
+  contextNoticeIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.brandSoft,
+  },
+  contextNoticeCopy: { flex: 1, minWidth: 0 },
+  contextNoticeTitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+    color: COLORS.ink,
+  },
+  contextNoticeDetail: { fontSize: 11, lineHeight: 16, color: COLORS.muted },
+
+  promptSection: { width: '100%', marginTop: 24 },
+  promptLabel: {
+    marginBottom: 10,
+    paddingHorizontal: 2,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+    color: COLORS.ink,
+  },
+  promptList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  promptButton: {
+    width: '47%',
+    flexGrow: 1,
+    minHeight: 88,
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+    padding: 13,
+    borderWidth: 1,
+    borderColor: COLORS.hairline,
+    borderRadius: 16,
+    backgroundColor: COLORS.white,
+  },
+  promptHovered: { borderColor: COLORS.borderStrong, backgroundColor: COLORS.surfaceSoft },
+  promptPressed: { opacity: 0.78, transform: [{ scale: 0.98 }] },
+  promptIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.brandSoft,
+  },
+  promptText: { fontSize: 13, lineHeight: 18, fontWeight: '600', color: COLORS.ink },
 
   modeSection: { width: '100%', alignItems: 'center', marginTop: 24 },
   modePrompt: {
@@ -1546,6 +1856,8 @@ const styles = createThemedStyles({
     backgroundColor: COLORS.surfaceWarm,
   },
   messageText: { fontSize: 15, lineHeight: 23, color: COLORS.ink },
+  replyCursor: { color: COLORS.brand, fontWeight: '700' },
+  replyingText: { marginTop: 7, fontSize: 11, lineHeight: 16, color: COLORS.muted },
   deliveryStatus: { marginTop: 4, fontSize: 10.5, lineHeight: 15, color: COLORS.muted },
   deliveryStatusFailed: { color: COLORS.error },
   messageMetaRow: {
@@ -1598,15 +1910,17 @@ const styles = createThemedStyles({
   },
   typingDots: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   typingDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: COLORS.brand },
+  waitingCopy: { flex: 1, minWidth: 0 },
+  waitingTitle: { fontSize: 13, lineHeight: 18, fontWeight: '600', color: COLORS.ink },
   typingText: { fontSize: 12, lineHeight: 17, color: COLORS.muted },
 
   composerWrap: {
-    paddingHorizontal: 14,
-    paddingTop: 8,
+    paddingHorizontal: 12,
+    paddingTop: 10,
     paddingBottom: 10,
     borderTopWidth: 1,
     borderTopColor: COLORS.hairlineSoft,
-    backgroundColor: COLORS.splash,
+    backgroundColor: COLORS.canvas,
     zIndex: 30,
   },
   modeDock: { marginBottom: 7 },
@@ -1625,16 +1939,15 @@ const styles = createThemedStyles({
     minHeight: 56,
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 8,
-    paddingLeft: 14,
-    paddingRight: 5,
+    gap: 6,
+    paddingHorizontal: 5,
     paddingVertical: 5,
     borderWidth: 1,
     borderColor: COLORS.hairline,
-    borderRadius: 16,
+    borderRadius: 28,
     backgroundColor: COLORS.white,
     ...Platform.select({
-      web: { boxShadow: 'rgba(44, 31, 33, 0.08) 0px 2px 8px' },
+      web: { boxShadow: '0 2px 8px rgba(0,0,0,0.07)' },
       ios: {
         shadowColor: '#2C1F21',
         shadowOffset: { width: 0, height: 2 },
@@ -1644,6 +1957,7 @@ const styles = createThemedStyles({
       android: { elevation: 2 },
     }),
   },
+  inlineComposer: { width: '100%', marginTop: 18 },
   composerFocused: { borderColor: COLORS.brand },
   composerLifted: { transform: [{ translateY: -1 }] },
   input: {
@@ -1652,9 +1966,9 @@ const styles = createThemedStyles({
     maxHeight: 116,
     paddingTop: 10,
     paddingBottom: 8,
-    paddingHorizontal: 0,
-    fontSize: 15,
-    lineHeight: 22,
+    paddingHorizontal: 10,
+    fontSize: 14,
+    lineHeight: 20,
     color: COLORS.ink,
     ...Platform.select({ web: { outlineStyle: 'none' }, default: {} }),
   },
@@ -1666,17 +1980,104 @@ const styles = createThemedStyles({
     justifyContent: 'center',
     backgroundColor: COLORS.brand,
   },
+  addButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.surfaceStrong,
+  },
   sendButtonHovered: { backgroundColor: COLORS.brandHover },
   sendButtonDisabled: { backgroundColor: COLORS.surfaceSoft },
 
-  modalLayer: {
+  drawerModalLayer: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 12,
-    paddingBottom: 12,
-    backgroundColor: 'rgba(34, 34, 34, 0.22)',
+    flexDirection: 'row',
+    backgroundColor: COLORS.scrim,
   },
+  drawerScrim: { ...StyleSheet.absoluteFillObject },
+  drawer: {
+    width: '80%',
+    maxWidth: 320,
+    height: '100%',
+    borderTopRightRadius: 20,
+    borderBottomRightRadius: 20,
+    backgroundColor: '#2A2726',
+    overflow: 'hidden',
+    ...Platform.select({
+      web: { boxShadow: '4px 0 18px rgba(0,0,0,0.22)' },
+      ios: { shadowColor: '#000000', shadowOffset: { width: 4, height: 0 }, shadowOpacity: 0.22, shadowRadius: 12 },
+      android: { elevation: 12 },
+    }),
+  },
+  drawerHeader: {
+    minHeight: 82,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  drawerBrand: { fontSize: 16, lineHeight: 20, fontWeight: '600', color: '#F3F0EE' },
+  drawerIconButton: { width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  drawerPressed: { opacity: 0.68 },
+  newChatWrap: { paddingHorizontal: 24, paddingBottom: 16 },
+  newChatButton: {
+    minHeight: 58,
+    borderRadius: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.brand,
+  },
+  newChatText: { fontSize: 14, lineHeight: 18, fontWeight: '700', color: COLORS.onBrand },
+  drawerNav: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.10)',
+  },
+  drawerNavItem: {
+    minHeight: 50,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  drawerNavText: { fontSize: 16, lineHeight: 24, color: '#F3F0EE' },
+  drawerMutedText: { color: '#BDB8B6' },
+  drawerRecentScroll: { flex: 1, minHeight: 0 },
+  recentList: { flexGrow: 1, paddingHorizontal: 24, paddingVertical: 18, gap: 6 },
+  recentLabel: { marginBottom: 2, fontSize: 12, lineHeight: 16, fontWeight: '700', color: '#888382', letterSpacing: 0.5 },
+  recentItem: { minHeight: 36, justifyContent: 'center', paddingHorizontal: 8, borderRadius: 8 },
+  recentItemActive: { backgroundColor: '#F7F7F7' },
+  recentText: { fontSize: 14, lineHeight: 20, fontWeight: '500', color: '#D4CFCD' },
+  recentTextActive: { color: '#2A2726' },
+  emptyRecent: { paddingHorizontal: 8, paddingVertical: 8, fontSize: 13, lineHeight: 19, color: '#888382' },
+  drawerProfile: {
+    minHeight: 76,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.10)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  profileIdentity: { minHeight: 54, flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  profileAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.20)',
+    backgroundColor: '#514A48',
+  },
+  profileInitial: { fontSize: 14, fontWeight: '700', color: '#F3F0EE' },
+  profileName: { flex: 1, fontSize: 14, lineHeight: 20, color: '#F3F0EE' },
   managePanel: {
     width: '100%',
     maxWidth: 402,

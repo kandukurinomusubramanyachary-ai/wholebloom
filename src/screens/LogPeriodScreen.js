@@ -1,15 +1,27 @@
-import React, { useState } from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { Platform, View, Text, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { COLORS, createThemedStyles, FLOW_LEVELS, LAYOUT } from '../utils/constants';
-import { addDays, format, isBefore, parseISO } from 'date-fns';
+import { addDays, format, isAfter, isBefore, parseISO } from 'date-fns';
 import Button from '../components/Button';
+import CalendarDatePicker from '../components/CalendarDatePicker';
 import { Entrance } from '../components/Motion';
 import { localDateKey } from '../utils/dateKey';
+import { parseCalendarDate } from '../utils/calendarDates';
 
-function DateControl({ value, onPrevious, onNext, emptyLabel }) {
+function DateControl({
+  value,
+  onPrevious,
+  onNext,
+  onOpen,
+  emptyLabel,
+  label,
+  disableNext = false,
+}) {
+  const parsedValue = parseCalendarDate(value);
+  const spokenValue = parsedValue ? format(parsedValue, 'MMMM d, yyyy') : emptyLabel;
   return (
     <View style={styles.dateControl}>
       <Pressable
@@ -26,22 +38,37 @@ function DateControl({ value, onPrevious, onNext, emptyLabel }) {
         <Ionicons name='remove' size={22} color={COLORS.ink} />
       </Pressable>
 
-      <View style={styles.dateCopy}>
+      <Pressable
+        onPress={onOpen}
+        accessibilityRole='button'
+        accessibilityLabel={`Choose ${label}, currently ${spokenValue}`}
+        accessibilityHint='Opens a calendar with month and year selection'
+        style={({ pressed, hovered, focused }) => [
+          styles.dateField,
+          hovered && styles.dateFieldHovered,
+          focused && styles.controlFocused,
+          pressed && styles.pressed,
+        ]}
+      >
         <Ionicons name='calendar-clear-outline' size={18} color={COLORS.brand} />
         <Text style={styles.dateText}>
-          {value ? format(parseISO(value), 'MMM d, yyyy') : emptyLabel}
+          {parsedValue ? format(parsedValue, 'MMM d, yyyy') : emptyLabel}
         </Text>
-      </View>
+        <Ionicons name='chevron-down' size={16} color={COLORS.brand} />
+      </Pressable>
 
       <Pressable
         onPress={onNext}
+        disabled={disableNext}
         accessibilityRole='button'
         accessibilityLabel='Next day'
+        accessibilityState={{ disabled: disableNext }}
         style={({ pressed, hovered, focused }) => [
           styles.dateStepButton,
-          hovered && styles.controlHovered,
+          disableNext && styles.disabledControl,
+          hovered && !disableNext && styles.controlHovered,
           focused && styles.controlFocused,
-          pressed && styles.pressed,
+          pressed && !disableNext && styles.pressed,
         ]}
       >
         <Ionicons name='add' size={22} color={COLORS.ink} />
@@ -52,21 +79,33 @@ function DateControl({ value, onPrevious, onNext, emptyLabel }) {
 
 export default function LogPeriodScreen({ navigation, route }) {
   const { state, savePeriod, deletePeriod } = useApp();
-  const existing = state.periods.find((item) => item.id === route?.params?.periodId || item.startDate === route?.params?.periodId) || null;
-  const [startDate, setStartDate] = useState(existing?.startDate || localDateKey());
-  const [endDate, setEndDate] = useState(existing?.endDate || null);
+  const periods = Array.isArray(state.periods) ? state.periods : [];
+  const existing = periods.find((item) => item.id === route?.params?.periodId || item.startDate === route?.params?.periodId) || null;
+  const initialStartDate = parseCalendarDate(existing?.startDate) ? existing.startDate : localDateKey();
+  const initialEndDate = parseCalendarDate(existing?.endDate) ? existing.endDate : null;
+  const [startDate, setStartDate] = useState(initialStartDate);
+  const [endDate, setEndDate] = useState(initialEndDate);
   const [flow, setFlow] = useState(existing?.flow || 'medium');
   const [isOngoing, setIsOngoing] = useState(existing ? !existing.endDate : true);
   const [hasChangedOngoing, setHasChangedOngoing] = useState(false);
   const [submittingAction, setSubmittingAction] = useState(null);
   const [formError, setFormError] = useState('');
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const hasValidEndDate = isOngoing || Boolean(
-    endDate && !isBefore(parseISO(endDate), parseISO(startDate))
+  const [datePickerTarget, setDatePickerTarget] = useState(null);
+  const actionLock = useRef(null);
+  const today = localDateKey();
+  const startIsFuture = isAfter(parseISO(startDate), parseISO(today));
+  const endIsFuture = Boolean(endDate && isAfter(parseISO(endDate), parseISO(today)));
+  const endIsBeforeStart = Boolean(
+    endDate && isBefore(parseISO(endDate), parseISO(startDate))
   );
+  const endIsMissing = !isOngoing && !endDate;
+  const hasValidEndDate = isOngoing || Boolean(endDate && !endIsBeforeStart && !endIsFuture);
+  const hasValidDates = !startIsFuture && hasValidEndDate;
 
   async function handleSave() {
-    if (submittingAction || !hasValidEndDate) return;
+    if (actionLock.current || submittingAction || !hasValidDates) return;
+    actionLock.current = 'save';
     setSubmittingAction('save');
     setFormError('');
     let saved = false;
@@ -86,17 +125,21 @@ export default function LogPeriodScreen({ navigation, route }) {
         'period-invalid-start': 'Choose a valid period start date.',
         'period-invalid-end': 'Choose a valid period end date.',
         'period-invalid-range': 'End date cannot be before the start date.',
+        'period-future-start': 'Start date cannot be in the future.',
+        'period-future-end': 'End date cannot be in the future.',
       }[error?.code];
       setFormError(message || 'Bloom could not save this period. Check your connection and try again.');
     } finally {
+      actionLock.current = null;
       setSubmittingAction(null);
     }
     if (saved) navigation.goBack();
   }
 
   async function handleDelete() {
-    if (!existing || submittingAction) return;
+    if (!existing || actionLock.current || submittingAction) return;
     if (!confirmingDelete) return;
+    actionLock.current = 'delete';
     setSubmittingAction('delete');
     setFormError('');
     let deleted = false;
@@ -106,6 +149,7 @@ export default function LogPeriodScreen({ navigation, route }) {
     } catch (error) {
       setFormError('Bloom could not delete this period. Check your connection and try again.');
     } finally {
+      actionLock.current = null;
       setSubmittingAction(null);
     }
     if (deleted) navigation.goBack();
@@ -115,13 +159,21 @@ export default function LogPeriodScreen({ navigation, route }) {
     return localDateKey(addDays(parseISO(dateStr), days));
   }
 
+  function handleDateSelection(dateKey) {
+    setFormError('');
+    if (datePickerTarget === 'start') setStartDate(dateKey);
+    if (datePickerTarget === 'end') setEndDate(dateKey);
+    setDatePickerTarget(null);
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={Platform.OS === 'web'}
         keyboardShouldPersistTaps='handled'
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
       >
         <View style={styles.inner}>
           <View style={styles.header}>
@@ -152,9 +204,15 @@ export default function LogPeriodScreen({ navigation, route }) {
             <Text style={styles.helperText}>The first day of this period.</Text>
             <DateControl
               value={startDate}
+              label='start date'
               onPrevious={() => setStartDate(adjustDate(startDate, -1))}
               onNext={() => setStartDate(adjustDate(startDate, 1))}
+              onOpen={() => setDatePickerTarget('start')}
+              disableNext={startDate >= today}
             />
+            {startIsFuture ? (
+              <Text style={styles.rangeError} accessibilityRole='alert'>Start date cannot be in the future.</Text>
+            ) : null}
           </View>
 
           <View style={styles.section}>
@@ -201,14 +259,23 @@ export default function LogPeriodScreen({ navigation, route }) {
                 <Text style={styles.helperText}>The final day of this period, if you know it.</Text>
                 <DateControl
                   value={endDate}
+                  label='end date'
                   emptyLabel='Select date'
                   onPrevious={() => setEndDate(adjustDate(endDate || startDate, -1))}
                   onNext={() => setEndDate(adjustDate(endDate || startDate, 1))}
+                  onOpen={() => setDatePickerTarget('end')}
+                  disableNext={(endDate || startDate) >= today}
                 />
-                {!hasValidEndDate ? (
+                {endIsBeforeStart ? (
                   <Entrance duration={180} distance={4}>
                     <Text style={styles.rangeError} accessibilityRole='alert'>End date cannot be before the start date.</Text>
                   </Entrance>
+                ) : null}
+                {endIsMissing ? (
+                  <Text style={styles.rangeError} accessibilityRole='alert'>Choose an end date.</Text>
+                ) : null}
+                {endIsFuture ? (
+                  <Text style={styles.rangeError} accessibilityRole='alert'>End date cannot be in the future.</Text>
                 ) : null}
               </Entrance>
             ) : null}
@@ -229,6 +296,7 @@ export default function LogPeriodScreen({ navigation, route }) {
                     accessibilityState={{ selected, checked: selected }}
                     style={({ pressed, hovered, focused }) => [
                       styles.flowOption,
+                      flowLevel.id === 'heavy' && styles.flowOptionWide,
                       selected && styles.flowOptionSelected,
                       hovered && !selected && styles.controlHovered,
                       focused && styles.controlFocused,
@@ -263,7 +331,7 @@ export default function LogPeriodScreen({ navigation, route }) {
               icon='checkmark-circle-outline'
               onPress={handleSave}
               loading={submittingAction === 'save'}
-              disabled={!hasValidEndDate || Boolean(submittingAction)}
+              disabled={!hasValidDates || Boolean(submittingAction)}
             />
             {existing && !confirmingDelete ? (
               <Button
@@ -312,21 +380,30 @@ export default function LogPeriodScreen({ navigation, route }) {
           </View>
         </View>
       </ScrollView>
+      <CalendarDatePicker
+        visible={Boolean(datePickerTarget)}
+        value={datePickerTarget === 'end' ? endDate : startDate}
+        minimumDate={datePickerTarget === 'end' ? startDate : undefined}
+        maximumDate={today}
+        title={datePickerTarget === 'end' ? 'Choose end date' : 'Choose start date'}
+        onSelect={handleDateSelection}
+        onClose={() => setDatePickerTarget(null)}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = createThemedStyles({
-  safeArea: { flex: 1, backgroundColor: COLORS.canvas },
-  scrollView: { flex: 1 },
-  scrollContent: { flexGrow: 1, paddingBottom: 40 },
+  safeArea: { flex: 1, minHeight: 0, backgroundColor: COLORS.canvas, ...Platform.select({ web: { height: '100vh', maxHeight: '100vh', overflow: 'hidden' } }) },
+  scrollView: { flex: 1, minHeight: 0, ...Platform.select({ web: { height: '100%', maxHeight: '100%', overflowY: 'auto', overscrollBehaviorY: 'contain' } }) },
+  scrollContent: { flexGrow: 1, paddingBottom: 28 },
   inner: {
     width: '100%',
-    maxWidth: LAYOUT.maxContentWidth,
+    maxWidth: LAYOUT.phoneMaxWidth || 430,
     alignSelf: 'center',
-    paddingHorizontal: LAYOUT.screenPadding,
+    paddingHorizontal: 16,
   },
-  header: { paddingTop: 8, paddingBottom: 28 },
+  header: { paddingTop: 4, paddingBottom: 22 },
   backButton: {
     minHeight: LAYOUT.touchTarget,
     alignSelf: 'flex-start',
@@ -356,7 +433,7 @@ const styles = createThemedStyles({
     color: COLORS.ink,
   },
   subtitle: { maxWidth: 560, marginTop: 8, fontSize: 15, lineHeight: 22, color: COLORS.body },
-  section: { paddingVertical: 24, borderTopWidth: 1, borderTopColor: COLORS.hairline },
+  section: { paddingVertical: 20, borderTopWidth: 1, borderTopColor: COLORS.hairline },
   sectionTitle: { fontSize: 16, lineHeight: 22, fontWeight: '600', color: COLORS.ink },
   helperText: { marginTop: 3, fontSize: 14, lineHeight: 20, color: COLORS.body },
   dateControl: {
@@ -381,14 +458,20 @@ const styles = createThemedStyles({
     borderColor: COLORS.hairline,
     backgroundColor: COLORS.canvas,
   },
-  dateCopy: {
+  dateField: {
     flex: 1,
+    minWidth: 0,
+    minHeight: LAYOUT.touchTarget,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    borderRadius: LAYOUT.controlRadius,
+    paddingHorizontal: 8,
   },
+  dateFieldHovered: { backgroundColor: COLORS.brandSoft },
   dateText: { fontSize: 15, lineHeight: 20, fontWeight: '600', color: COLORS.ink, textAlign: 'center' },
+  disabledControl: { opacity: 0.34 },
   rangeError: { marginTop: 9, fontSize: 13, lineHeight: 18, color: COLORS.error },
   ongoingRow: {
     minHeight: 64,
@@ -424,10 +507,10 @@ const styles = createThemedStyles({
   flowSection: { paddingBottom: 28 },
   flowGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
   flowOption: {
-    minWidth: 112,
+    minWidth: 140,
     minHeight: 52,
     flexGrow: 1,
-    flexBasis: '30%',
+    flexBasis: '45%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -438,6 +521,7 @@ const styles = createThemedStyles({
     borderColor: COLORS.hairline,
     backgroundColor: COLORS.canvas,
   },
+  flowOptionWide: { flexBasis: '100%' },
   flowOptionSelected: { borderColor: COLORS.brand, backgroundColor: COLORS.brandSoft },
   flowIcon: {
     width: 32,
@@ -450,7 +534,7 @@ const styles = createThemedStyles({
   flowIconSelected: { backgroundColor: COLORS.canvas },
   flowLabel: { flex: 1, fontSize: 13, lineHeight: 18, fontWeight: '500', color: COLORS.body },
   flowLabelSelected: { color: COLORS.brand, fontWeight: '600' },
-  footer: { paddingTop: 8 },
+  footer: { paddingTop: 6 },
   cancelButton: { marginTop: 10 },
   deleteConfirmation: {
     marginTop: 12,

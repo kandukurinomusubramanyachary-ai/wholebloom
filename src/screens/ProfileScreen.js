@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Platform, View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
+import { Platform, View, Text, TextInput, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
@@ -12,13 +12,17 @@ import { LotusMark } from '../components/BrandMark';
 import { preferredDisplayName } from '../utils/displayName';
 
 export default function ProfileScreen({ navigation }) {
-  const { state, resetAllData } = useApp();
-  const { user, logOut } = useAuth();
+  const { state, resetAllData, deleteAllAccountData } = useApp();
+  const { user, logOut, deleteAccount } = useAuth();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState('');
   const [deletingData, setDeletingData] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const [showAccountDeleteConfirm, setShowAccountDeleteConfirm] = useState(false);
+  const [accountPassword, setAccountPassword] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [accountDeleteError, setAccountDeleteError] = useState('');
   const trackingMode = state.settings?.trackingMode || state.profile?.trackingMode || 'cycle';
   const modeLabel = trackingMode === 'pcos' ? 'PCOS support mode' : 'Basic cycle mode';
   const themeLabel = state.resolvedTheme === 'dark' ? 'Dark theme' : 'Light theme';
@@ -79,9 +83,35 @@ export default function ProfileScreen({ navigation }) {
     }
   }
 
+  async function handleDeleteAccount() {
+    if (deletingAccount) return;
+    if (!accountPassword) {
+      setAccountDeleteError('Enter your password to confirm account deletion.');
+      return;
+    }
+    setDeletingAccount(true);
+    setAccountDeleteError('');
+    try {
+      await deleteAccount({
+        password: accountPassword,
+        beforeDelete: deleteAllAccountData,
+      });
+    } catch (error) {
+      setAccountDeleteError(error?.message || 'Bloom could not delete your account. Please try again.');
+      setDeletingAccount(false);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <ScrollView style={styles.screen} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps='handled'
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+        showsVerticalScrollIndicator={Platform.OS === 'web'}
+      >
         <View style={styles.inner}>
           <ScreenHeader title='Your space' subtitle='Manage Bloom in a way that feels private and comfortable.' />
 
@@ -241,6 +271,76 @@ export default function ProfileScreen({ navigation }) {
             )}
           </View>
 
+          <View style={styles.accountDeleteSection}>
+            {!showAccountDeleteConfirm ? (
+              <Pressable
+                onPress={() => {
+                  setAccountDeleteError('');
+                  setShowAccountDeleteConfirm(true);
+                }}
+                accessibilityRole='button'
+                accessibilityLabel='Delete Bloom account'
+                style={({ pressed, hovered, focused }) => [
+                  styles.accountDeleteTrigger,
+                  hovered && styles.deleteTriggerHovered,
+                  focused && styles.focusedControl,
+                  pressed && styles.menuItemPressed,
+                ]}
+              >
+                <Ionicons name='person-remove-outline' size={20} color={COLORS.error} />
+                <Text style={styles.deleteTriggerText}>Delete Bloom account</Text>
+              </Pressable>
+            ) : (
+              <Card style={styles.confirmCard}>
+                <Text style={styles.confirmTitle}>Permanently delete your Bloom account?</Text>
+                <Text style={styles.confirmText}>This removes your sign-in, profile, check-ins, cycle dates, Diet records, Strength sessions, Meg chats and local Bloom data. It cannot be undone.</Text>
+                <Text style={styles.accountPasswordLabel}>Confirm with your password</Text>
+                <TextInput
+                  value={accountPassword}
+                  onChangeText={(value) => {
+                    setAccountPassword(value);
+                    setAccountDeleteError('');
+                  }}
+                  editable={!deletingAccount}
+                  secureTextEntry
+                  autoCapitalize='none'
+                  autoCorrect={false}
+                  autoComplete='current-password'
+                  textContentType='password'
+                  returnKeyType='done'
+                  onSubmitEditing={handleDeleteAccount}
+                  placeholder='Your Bloom password'
+                  placeholderTextColor={COLORS.muted}
+                  accessibilityLabel='Password to confirm account deletion'
+                  style={styles.accountPasswordInput}
+                />
+                {accountDeleteError ? <Text style={styles.logoutError} accessibilityRole='alert'>{accountDeleteError}</Text> : null}
+                <View style={styles.confirmActions}>
+                  <Button
+                    title='Keep my account'
+                    variant='secondary'
+                    onPress={() => {
+                      setShowAccountDeleteConfirm(false);
+                      setAccountPassword('');
+                      setAccountDeleteError('');
+                    }}
+                    disabled={deletingAccount}
+                    style={styles.confirmButton}
+                  />
+                  <Button
+                    title='Delete account'
+                    variant='danger'
+                    onPress={handleDeleteAccount}
+                    loading={deletingAccount}
+                    loadingLabel='Deleting account…'
+                    disabled={!accountPassword || deletingAccount}
+                    style={styles.confirmButton}
+                  />
+                </View>
+              </Card>
+            )}
+          </View>
+
           <Text style={styles.version}>Bloom 1.0 · Private by design</Text>
         </View>
       </ScrollView>
@@ -249,8 +349,32 @@ export default function ProfileScreen({ navigation }) {
 }
 
 const styles = createThemedStyles({
-  safeArea: { flex: 1, backgroundColor: COLORS.canvas },
-  screen: { flex: 1, backgroundColor: COLORS.canvas },
+  safeArea: {
+    flex: 1,
+    minHeight: 0,
+    backgroundColor: COLORS.canvas,
+    ...Platform.select({
+      web: {
+        height: '100vh',
+        maxHeight: '100vh',
+        overflow: 'hidden',
+      },
+      default: {},
+    }),
+  },
+  screen: {
+    flex: 1,
+    minHeight: 0,
+    backgroundColor: COLORS.canvas,
+    ...Platform.select({
+      web: {
+        height: '100%',
+        maxHeight: '100%',
+        overflowY: 'auto',
+      },
+      default: {},
+    }),
+  },
   scrollContent: { paddingBottom: 40 },
   inner: {
     width: '100%',
@@ -426,6 +550,7 @@ const styles = createThemedStyles({
   },
   logoutError: { marginTop: 8, fontSize: 13, lineHeight: 18, color: COLORS.error },
   dataSection: { marginTop: 28 },
+  accountDeleteSection: { marginTop: 12 },
   deleteTrigger: {
     minHeight: 52,
     flexDirection: 'row',
@@ -438,6 +563,14 @@ const styles = createThemedStyles({
     backgroundColor: COLORS.white,
   },
   deleteTriggerHovered: { backgroundColor: '#FFF7F6', borderColor: '#DCA9A2' },
+  accountDeleteTrigger: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+    borderRadius: LAYOUT.controlRadius,
+  },
   focusedControl: { borderColor: COLORS.brand },
   deleteTriggerText: {
     fontSize: 15,
@@ -461,6 +594,17 @@ const styles = createThemedStyles({
     fontSize: 14,
     lineHeight: 21,
     color: COLORS.body,
+  },
+  accountPasswordLabel: { marginTop: 16, marginBottom: 7, fontSize: 14, lineHeight: 20, fontWeight: '600', color: COLORS.ink },
+  accountPasswordInput: {
+    minHeight: 52,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: COLORS.hairline,
+    borderRadius: LAYOUT.controlRadius,
+    backgroundColor: COLORS.canvas,
+    color: COLORS.ink,
+    fontSize: 16,
   },
   confirmActions: {
     marginTop: 18,

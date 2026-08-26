@@ -40,7 +40,15 @@ export default function AppLockModal({ visible, onUnlock }) {
         promptMessage: 'Unlock Bloom',
         fallbackLabel: 'Use device passcode',
       });
-      if (result.success) onUnlock();
+      if (result.success) {
+        onUnlock();
+      } else {
+        setError(
+          result.error === 'user_cancel' || result.error === 'system_cancel'
+            ? 'Bloom is still locked. Try again when you are ready.'
+            : 'Device security could not verify you. Try again or use your device passcode.'
+        );
+      }
     } catch (authError) {
       setError('Device security is unavailable right now. Please try again.');
     }

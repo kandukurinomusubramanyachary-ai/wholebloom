@@ -1,4 +1,5 @@
-import { compareAsc, isBefore, isValid, parseISO } from 'date-fns';
+import { compareAsc, isAfter, isBefore, isValid, parseISO } from 'date-fns';
+import { localDateKey } from '../utils/dateKey';
 
 const LOCAL_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -6,6 +7,8 @@ export const PERIOD_ERROR_CODES = {
   invalidStart: 'period-invalid-start',
   invalidEnd: 'period-invalid-end',
   invalidRange: 'period-invalid-range',
+  futureStart: 'period-future-start',
+  futureEnd: 'period-future-end',
   duplicateStart: 'period-date-conflict',
   overlap: 'period-overlap',
 };
@@ -70,6 +73,13 @@ export function validatePeriodChange(candidate, history = [], options = {}) {
   }
   if (isBefore(end, start)) {
     return invalid(PERIOD_ERROR_CODES.invalidRange, 'End date cannot be before the start date.');
+  }
+  const maximumDate = dateFromKey(options.maximumDate || localDateKey());
+  if (maximumDate && isAfter(start, maximumDate)) {
+    return invalid(PERIOD_ERROR_CODES.futureStart, 'Start date cannot be in the future.');
+  }
+  if (maximumDate && isAfter(end, maximumDate)) {
+    return invalid(PERIOD_ERROR_CODES.futureEnd, 'End date cannot be in the future.');
   }
 
   const comparableCandidate = {

@@ -93,13 +93,18 @@ export default function RemindersScreen({ navigation }) {
   const [status, setStatus] = useState('');
 
   useEffect(() => {
-    notifications.setupAndroidChannel();
+    void notifications.setupAndroidChannel().catch((error) => {
+      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        console.warn('[Bloom reminders] Notification channel setup failed.', error);
+      }
+    });
   }, []);
 
   async function schedule(key, reminder) {
     const config = REMINDER_CONFIGS.find((item) => item.key === key);
     const [hour, minute] = reminder.time.split(':').map(Number);
-    await notifications.scheduleReminder(key, config.title, config.body, hour, minute);
+    const weekday = key === 'weekly' ? Number(reminder.day) + 1 : null;
+    await notifications.scheduleReminder(key, config.title, config.body, hour, minute, true, weekday);
   }
 
   async function toggleReminder(key, enabled) {

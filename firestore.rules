@@ -240,6 +240,32 @@ service cloud.firestore {
       && data.updatedAt is timestamp;
     }
 
+    function validStrengthSession(data) {
+      return data.keys().hasOnly([
+        'id', 'exerciseId', 'exerciseVersion', 'startedAt', 'completedAt',
+        'durationSeconds', 'targetReps', 'acceptedReps', 'pauseCount', 'cueCounts',
+        'completionState', 'platform', 'privacyVersion'
+      ])
+      && data.keys().hasAll([
+        'id', 'exerciseId', 'exerciseVersion', 'startedAt', 'durationSeconds',
+        'targetReps', 'acceptedReps', 'pauseCount', 'completionState', 'platform',
+        'privacyVersion'
+      ])
+      && data.id is string && data.id.size() > 0 && data.id.size() <= 160
+      && data.exerciseId in ['bodyweight-squat-v1', 'wall-pushup-v1', 'side-leg-raise-v1']
+      && data.exerciseVersion is int && data.exerciseVersion >= 1 && data.exerciseVersion <= 20
+      && data.startedAt is timestamp
+      && optionalTimestamp(data, 'completedAt')
+      && data.durationSeconds is int && data.durationSeconds >= 0 && data.durationSeconds <= 14400
+      && data.targetReps is int && data.targetReps >= 1 && data.targetReps <= 100
+      && data.acceptedReps is int && data.acceptedReps >= 0 && data.acceptedReps <= 100
+      && data.pauseCount is int && data.pauseCount >= 0 && data.pauseCount <= 1000
+      && optionalMap(data, 'cueCounts', 20)
+      && data.completionState in ['completed', 'stopped', 'abandoned']
+      && data.platform in ['web', 'native']
+      && data.privacyVersion == 1;
+    }
+
     match /users/{uid} {
       allow read, write: if isOwner(uid);
 
@@ -279,6 +305,13 @@ service cloud.firestore {
         allow create, update: if isOwner(uid)
           && request.resource.data.id == observationId
           && validDietObservation(request.resource.data);
+      }
+
+      match /strengthSessions/{sessionId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid)
+          && request.resource.data.id == sessionId
+          && validStrengthSession(request.resource.data);
       }
 
       match /megConversations/{conversationId} {

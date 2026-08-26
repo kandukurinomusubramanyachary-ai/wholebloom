@@ -232,6 +232,7 @@ export async function deleteAllCurrentUserTrackingData() {
   const snapshots = await Promise.all([
     getDocs(userCollection(uid, 'cycleLogs')),
     getDocs(userCollection(uid, 'checkIns')),
+    getDocs(userCollection(uid, 'strengthSessions')),
   ]);
   const references = snapshots.flatMap((snapshot) => snapshot.docs.map((item) => item.ref));
 
@@ -240,4 +241,9 @@ export async function deleteAllCurrentUserTrackingData() {
     references.slice(index, index + 450).forEach((reference) => batch.delete(reference));
     await batch.commit();
   }
+}
+
+export async function deleteCurrentUserProfileDocument() {
+  const { uid } = requireCurrentUser();
+  await deleteDoc(doc(db, 'users', uid));
 }

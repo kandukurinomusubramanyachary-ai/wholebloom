@@ -34,6 +34,7 @@ const projectRoot = path.resolve(__dirname, '..');
 const prediction = loadSourceModule(path.join(projectRoot, 'src/services/cyclePrediction.js'));
 const validation = loadSourceModule(path.join(projectRoot, 'src/services/periodValidation.js'));
 const dates = loadSourceModule(path.join(projectRoot, 'src/utils/dateKey.js'));
+const calendar = loadSourceModule(path.join(projectRoot, 'src/utils/calendarDates.js'));
 
 test('first-ever period is retained without fabricating a prediction', () => {
   const periods = [{ id: 'first', startDate: '2024-01-04', endDate: '2024-01-08' }];
@@ -222,4 +223,45 @@ test('short and long cycle intervals are retained instead of forced to a standar
 
   assert.deepEqual(pattern.cycleLengths, [10, 120]);
   assert.notEqual(pattern.cycleLength, 28);
+});
+
+test('calendar month grid keeps Sunday-first weeks and valid leap dates', () => {
+  const august = calendar.calendarMonthCells('2026-08-01');
+  const february = calendar.calendarMonthCells('2024-02-01');
+
+  assert.equal(august.length, 42);
+  assert.equal(august[0].dateKey, '2026-07-26');
+  assert.equal(august.at(-1).dateKey, '2026-09-05');
+  assert.ok(february.some((cell) => cell.dateKey === '2024-02-29' && cell.inMonth));
+});
+
+test('calendar bounds allow historical navigation and disable future months and dates', () => {
+  const bounds = { minimumDate: '2023-01-01', maximumDate: '2026-08-26' };
+
+  assert.equal(calendar.monthHasSelectableDate(2023, 0, bounds), true);
+  assert.equal(calendar.monthHasSelectableDate(2026, 7, bounds), true);
+  assert.equal(calendar.monthHasSelectableDate(2026, 8, bounds), false);
+  assert.equal(calendar.isCalendarDateSelectable('2026-08-26', bounds), true);
+  assert.equal(calendar.isCalendarDateSelectable('2026-08-27', bounds), false);
+  assert.deepEqual(calendar.calendarYears(bounds).slice(0, 4), [2026, 2025, 2024, 2023]);
+});
+
+test('period persistence rejects future start and end dates with specific errors', () => {
+  const today = dates.localDateKey();
+  const tomorrowDate = new Date();
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  const tomorrow = dates.localDateKey(tomorrowDate);
+
+  assert.equal(
+    validation.validatePeriodChange({ startDate: tomorrow, endDate: null }).code,
+    'period-future-start'
+  );
+  assert.equal(
+    validation.validatePeriodChange({ startDate: today, endDate: tomorrow }).code,
+    'period-future-end'
+  );
+  assert.equal(
+    validation.validatePeriodChange({ startDate: today, endDate: today }).valid,
+    true
+  );
 });

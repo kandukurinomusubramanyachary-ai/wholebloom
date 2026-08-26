@@ -109,19 +109,62 @@ export function normalizePeriod(period) {
 }
 
 export function normalizeCheckin(checkin) {
-  if (!checkin?.date) return null;
+  if (typeof checkin?.date !== 'string' || !checkin.date.trim()) return null;
   const moodAliases = {
     joyful: 'happy',
     irritable: 'irritated',
     tender: 'emotionally_sensitive',
   };
+  const text = (value, fallback = '') => (
+    typeof value === 'string' ? value : fallback
+  );
+  const optionalNumber = (value) => (
+    typeof value === 'number' && Number.isFinite(value) ? value : null
+  );
+  const movement = typeof checkin.movementNote === 'string'
+    ? checkin.movementNote
+    : typeof checkin.movement === 'string'
+      ? checkin.movement
+      : text(checkin.movement?.note);
+  const medicationTaken = typeof checkin.medicationTaken === 'boolean'
+    ? checkin.medicationTaken
+    : typeof checkin.medication?.taken === 'boolean'
+      ? checkin.medication.taken
+      : null;
+  const medicationName = typeof checkin.medicationName === 'string'
+    ? checkin.medicationName
+    : text(checkin.medication?.name);
+  const symptomSeverity = checkin.symptomSeverity
+    && typeof checkin.symptomSeverity === 'object'
+    && !Array.isArray(checkin.symptomSeverity)
+    ? Object.fromEntries(
+      Object.entries(checkin.symptomSeverity)
+        .filter(([key, value]) => typeof key === 'string' && typeof value === 'string')
+    )
+    : {};
   return {
     ...checkin,
     id: checkin.id || checkin.date,
-    mood: moodAliases[checkin.mood] || checkin.mood || null,
-    flow: checkin.flow || 'none',
-    symptoms: Array.isArray(checkin.symptoms) ? checkin.symptoms : [],
-    notes: checkin.notes || '',
+    mood: typeof checkin.mood === 'string'
+      ? moodAliases[checkin.mood] || checkin.mood
+      : null,
+    flow: typeof checkin.flow === 'string' ? checkin.flow : 'none',
+    symptoms: Array.isArray(checkin.symptoms)
+      ? checkin.symptoms.filter((value) => typeof value === 'string')
+      : [],
+    symptomSeverity,
+    energy: optionalNumber(checkin.energy),
+    sleep: optionalNumber(checkin.sleepDuration ?? checkin.sleep),
+    sleepDuration: optionalNumber(checkin.sleepDuration ?? checkin.sleep),
+    sleepQuality: text(checkin.sleepQuality) || null,
+    cravings: text(checkin.cravings) || null,
+    water: optionalNumber(checkin.water),
+    stress: optionalNumber(checkin.stress),
+    movement: movement || null,
+    movementNote: movement || null,
+    medicationTaken,
+    medicationName: medicationName || null,
+    notes: text(checkin.notes),
   };
 }
 

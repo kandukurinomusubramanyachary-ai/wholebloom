@@ -1,7 +1,12 @@
 const assert = require('node:assert/strict');
 const { once } = require('node:events');
 const test = require('node:test');
-const { createApp, resolveAllowedOrigins } = require('./index');
+const {
+  MODE_GENERATION_OPTIONS,
+  createApp,
+  generationOptionsForMode,
+  resolveAllowedOrigins,
+} = require('./index');
 const {
   bearerTokenFromHeader,
 } = require('./firebaseAuth');
@@ -194,6 +199,31 @@ test('Meg injects mode and sanitized logged context before history in provider m
     });
     assert.deepEqual(messages[4], { role: 'user', content: 'Why do I feel awful?' });
     assert.equal(runtime.calls.userMessages[0].mode, 'understand');
+    assert.deepEqual(runtime.calls.provider[0].options, MODE_GENERATION_OPTIONS.understand);
+  });
+});
+
+test('Meg passes bounded generation options for every supported mode and fallback', async () => {
+  const expected = {
+    listen: { temperature: 0.5, num_predict: 160 },
+    understand: { temperature: 0.35, num_predict: 200 },
+    plan: { temperature: 0.4, num_predict: 170 },
+    conversation: { temperature: 0.45, num_predict: 190 },
+    doctor: { temperature: 0.3, num_predict: 200 },
+  };
+
+  for (const [mode, options] of Object.entries(expected)) {
+    assert.deepEqual(generationOptionsForMode(mode), options);
+    const runtime = fakeRuntime();
+    await withServer(runtime, async (baseUrl) => {
+      const response = await postMeg(baseUrl, chatBody({ mode }), 'valid-token');
+      assert.equal(response.status, 200);
+      assert.deepEqual(runtime.calls.provider[0].options, options);
+    });
+  }
+  assert.deepEqual(generationOptionsForMode('diagnose'), {
+    temperature: 0.45,
+    num_predict: 180,
   });
 });
 

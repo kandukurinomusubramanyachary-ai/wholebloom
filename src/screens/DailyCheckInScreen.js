@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -13,6 +13,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { format, isValid, parseISO } from 'date-fns';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
+import { normalizeCheckin } from '../models';
+import { logCheckinEvent } from '../diagnostics/checkinDiagnostics';
 import { COLORS, createThemedStyles, FLOW_LEVELS, LAYOUT, MOODS, SYMPTOMS } from '../utils/constants';
 import { getCycleDay } from '../utils/helpers';
 import { localDateKey } from '../utils/dateKey';
@@ -265,9 +268,10 @@ function safeDateKey(value) {
 
 export default function DailyCheckInScreen({ route, navigation }) {
   const { state, saveCheckin } = useApp();
+  const { user } = useAuth();
   const date = safeDateKey(route?.params?.date);
   const existingCheckin = useMemo(
-    () => state.checkins.find((item) => item.date === date) || null,
+    () => normalizeCheckin(state.checkins.find((item) => item.date === date)) || null,
     [date, state.checkins]
   );
 
@@ -299,11 +303,14 @@ export default function DailyCheckInScreen({ route, navigation }) {
     }
     return null;
   });
-  const [medicationName, setMedicationName] = useState(
-    existingCheckin?.medicationName || existingCheckin?.medication?.name || ''
-  );
+  const [medicationName, setMedicationName] = useState(() => {
+    if (typeof existingCheckin?.medicationName === 'string') return existingCheckin.medicationName;
+    if (typeof existingCheckin?.medication?.name === 'string') return existingCheckin.medication.name;
+    return '';
+  });
   const [notes, setNotes] = useState(existingCheckin?.notes || '');
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [error, setError] = useState('');
   const [focusedInput, setFocusedInput] = useState(null);
 
@@ -312,12 +319,22 @@ export default function DailyCheckInScreen({ route, navigation }) {
   const cycleDay = useMemo(() => {
     const latestPeriod = [...(state.periods || [])]
       .filter((period) => {
+        if (typeof period?.startDate !== 'string') return false;
         const start = parseISO(period.startDate);
         return isValid(start) && start <= targetDate;
       })
       .sort((a, b) => parseISO(b.startDate) - parseISO(a.startDate))[0];
     return latestPeriod ? getCycleDay(latestPeriod.startDate, targetDate) : null;
   }, [state.periods, date]);
+
+  useEffect(() => {
+    logCheckinEvent('initialization', {
+      hasUser: Boolean(user),
+      hasDate: Boolean(date),
+      hasExistingCheckin: Boolean(existingCheckin),
+      source: 'DailyCheckInScreen',
+    });
+  }, [date, existingCheckin, user]);
 
   function toggleSymptom(id) {
     setSymptoms((current) => {
@@ -341,15 +358,20 @@ export default function DailyCheckInScreen({ route, navigation }) {
   }
 
   async function handleSave() {
-    if (saving) return;
+    if (savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     setError('');
 
-    const movementValue = movement.trim();
-    const medicationValue = medicationName.trim();
-    const now = new Date().toISOString();
-
     try {
+      const movementValue = movement.trim();
+      const medicationValue = medicationName.trim();
+      const now = new Date().toISOString();
+      logCheckinEvent('api_request_start', {
+        hasUser: Boolean(user),
+        isEditing: Boolean(existingCheckin),
+        source: 'DailyCheckInScreen',
+      });
       await saveCheckin({
         ...(existingCheckin || {}),
         date,
@@ -373,10 +395,27 @@ export default function DailyCheckInScreen({ route, navigation }) {
         createdAt: existingCheckin?.createdAt || now,
         updatedAt: now,
       });
-      navigation.goBack();
+      logCheckinEvent('api_result', {
+        result: 'success',
+        isEditing: Boolean(existingCheckin),
+        source: 'DailyCheckInScreen',
+      });
+      logCheckinEvent('completion', {
+        result: 'saved',
+        source: 'DailyCheckInScreen',
+      });
+      if (navigation.canGoBack?.()) navigation.goBack();
+      else navigation.navigate('Main');
     } catch (saveError) {
       setError('Bloom could not save this check-in. Your choices are still here, so you can try again.');
+      logCheckinEvent('caught_error', {
+        hasUser: Boolean(user),
+        isEditing: Boolean(existingCheckin),
+        stage: 'save',
+        source: 'DailyCheckInScreen',
+      }, saveError);
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
@@ -750,7 +789,7 @@ export default function DailyCheckInScreen({ route, navigation }) {
               />
             ) : (
               <Button
-                title={existingCheckin ? 'Save changes' : 'Save check-in'}
+                title={error ? 'Try saving again' : existingCheckin ? 'Save changes' : 'Save check-in'}
                 icon='checkmark-circle-outline'
                 onPress={handleSave}
                 loading={saving}

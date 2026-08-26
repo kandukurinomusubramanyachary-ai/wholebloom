@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, createThemedStyles, TYPOGRAPHY, WEB_FOCUS } from '../utils/constants';
 
@@ -55,7 +55,7 @@ export default function Button({
               isDisabled
                 ? COLORS.muted
                 : variant === 'primary'
-                  ? COLORS.white
+                  ? COLORS.onBrand
                   : variant === 'danger'
                     ? COLORS.error
                     : COLORS.ink
@@ -63,6 +63,7 @@ export default function Button({
           />
         ) : null}
         <Text
+          maxFontSizeMultiplier={1.4}
           style={[
             styles.text,
             variant === 'primary' && styles.primaryText,
@@ -80,10 +81,10 @@ export default function Button({
 
 const styles = createThemedStyles({
   button: {
-    minHeight: 52,
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 22,
     borderRadius: 12,
     ...Platform.select({
@@ -159,7 +160,7 @@ const styles = createThemedStyles({
     ...TYPOGRAPHY.button,
   },
   primaryText: {
-    color: COLORS.white,
+    color: COLORS.onBrand,
   },
   secondaryText: {
     color: COLORS.ink,

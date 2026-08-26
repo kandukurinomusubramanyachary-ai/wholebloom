@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
 export const LIGHT_COLORS = Object.freeze({
   canvas: '#FFFEFF',
@@ -30,6 +30,8 @@ export const LIGHT_COLORS = Object.freeze({
   charcoalLight: '#484848',
   cream: '#F7F7F5',
   white: '#FFFFFF',
+  onBrand: '#FFFFFF',
+  scrim: 'rgba(18, 17, 19, 0.48)',
   gray: '#6A6A6A',
   lightGray: '#E5E5E2',
   success: '#60745C',
@@ -67,6 +69,8 @@ export const DARK_COLORS = Object.freeze({
   charcoalLight: '#DED8DB',
   cream: '#1B191C',
   white: '#1A181B',
+  onBrand: '#1A181B',
+  scrim: 'rgba(0, 0, 0, 0.68)',
   gray: '#B7AFB3',
   lightGray: '#343035',
   success: '#9DB296',
@@ -87,6 +91,22 @@ export function setActiveTheme(value) {
 
 export function getActiveTheme() {
   return activeTheme;
+}
+
+export function statusBarStyleForTheme(value) {
+  return cleanThemePreference(value) === 'dark' ? 'light' : 'dark';
+}
+
+export function navigationColorsForTheme(value) {
+  const palette = cleanThemePreference(value) === 'dark' ? DARK_COLORS : LIGHT_COLORS;
+  return {
+    primary: palette.brand,
+    background: palette.canvas,
+    card: palette.white,
+    text: palette.ink,
+    border: palette.hairline,
+    notification: palette.brand,
+  };
 }
 
 export const COLORS = new Proxy({}, {
@@ -111,7 +131,12 @@ const HARD_CODED_DARK_EQUIVALENTS = Object.freeze({
   '#DCA9A2': '#71444A',
   '#DDAEA7': '#70464B',
   '#E8C8C4': '#623C42',
+  '#EDE4F5': '#29222F',
   '#EEEAE7': '#29262A',
+  '#F4F1EE': '#242126',
+  '#F6E4EC': '#321C23',
+  '#F6EBDD': '#2A251C',
+  '#F7F7F7': '#F7F4F5',
   '#FBEAE7': '#321C20',
   '#FCEBE8': '#321C20',
   '#FCEDEB': '#2D1B1F',
@@ -119,6 +144,12 @@ const HARD_CODED_DARK_EQUIVALENTS = Object.freeze({
   '#FDF4F2': '#2A1A1D',
   '#FFF2F0': '#2D1B1F',
   '#FFF7F6': '#2A1A1D',
+  '#96AA91': '#9DB296',
+  '#CBD5C8': '#465443',
+  '#50664D': '#879D82',
+  '#1B1C1B': '#F7F4F5',
+  '#5F5E5E': '#B7AFB3',
+  '#E5E2E0': '#514A50',
   'rgba(247,247,245,0.68)': 'rgba(255,255,255,0.06)',
   'rgba(255,255,255,0.42)': 'rgba(255,255,255,0.07)',
   'rgba(255,255,255,0.68)': 'rgba(255,255,255,0.10)',
@@ -175,8 +206,18 @@ export function createThemedStyles(definitions) {
 }
 
 export const FONTS = {
-  display: undefined,
-  body: undefined,
+  display: Platform?.select?.({
+    ios: 'Avenir Next',
+    android: 'sans-serif',
+    web: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    default: undefined,
+  }),
+  body: Platform?.select?.({
+    ios: 'Avenir Next',
+    android: 'sans-serif',
+    web: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    default: undefined,
+  }),
 };
 
 export const TYPOGRAPHY = {
@@ -202,10 +243,13 @@ export const SIZES = {
 
 export const LAYOUT = {
   screenPadding: 20,
+  compactScreenPadding: 16,
   maxContentWidth: 720,
+  phoneMaxWidth: 430,
   cardRadius: 16,
   controlRadius: 12,
   touchTarget: 48,
+  tabBarHeight: 58,
 };
 
 export const MOTION = {
