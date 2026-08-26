@@ -120,7 +120,7 @@ function SectionHeading({ icon, title, description }) {
 }
 
 export default function PreferencesScreen({ navigation }) {
-  const { state, saveProfile, saveSettings } = useApp();
+  const { state, saveProfile, saveSettings, setThemePreference } = useApp();
   const profile = state.profile || {};
   const current = state.settings || {};
   const [name, setName] = useState(profile.preferredName || profile.name || '');
@@ -149,6 +149,17 @@ export default function PreferencesScreen({ navigation }) {
   const [cyclePredictions, setCyclePredictions] = useState(current.cyclePredictions !== false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  async function handleThemeSelect(value) {
+    setTheme(value);
+    setError('');
+    try {
+      await setThemePreference(value);
+    } catch {
+      setTheme(state.resolvedTheme);
+      setError('Bloom could not save that appearance choice. Please try again.');
+    }
+  }
 
   async function handleSave() {
     if (saving) return;
@@ -246,7 +257,7 @@ export default function PreferencesScreen({ navigation }) {
                   item={item}
                   selected={theme === item.id}
                   wide
-                  onPress={() => setTheme(item.id)}
+                  onPress={() => handleThemeSelect(item.id)}
                 />
               ))}
             </View>

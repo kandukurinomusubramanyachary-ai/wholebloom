@@ -6,7 +6,7 @@ import { createLandmarkSmoother, estimateBodyHeight } from '../engine/landmarkSm
 import { createPoseDetector } from '../services/PoseDetector.web';
 import PoseOverlay from './PoseOverlay.web';
 
-export default function CameraStage({ active, inferenceActive, showSkeleton = true, onFrame, onReady, onError }) {
+export default function CameraStage({ active, inferenceActive, showSkeleton = true, showIndicator = true, style, onFrame, onReady, onError }) {
   const videoRef = useRef(null);
   const overlayRef = useRef(null);
   const streamRef = useRef(null);
@@ -96,11 +96,11 @@ export default function CameraStage({ active, inferenceActive, showSkeleton = tr
   }, [showSkeleton]);
 
   return (
-    <View style={styles.stage} accessibilityLabel='Private camera preview'>
+    <View style={[styles.stage, style]} accessibilityLabel='Private camera preview'>
       <video ref={videoRef} muted playsInline style={webStyles.video} />
       <PoseOverlay ref={overlayRef} />
       {loading ? <View style={styles.loading}><ActivityIndicator color='#F7F4F5' /><Text style={styles.loadingText}>Preparing private camera guidance…</Text></View> : null}
-      <View style={styles.indicator}><View style={styles.dot} /><Text style={styles.indicatorText}>{STRENGTH_COPY.activeCamera}</Text></View>
+      {showIndicator ? <View style={styles.indicator}><View style={styles.dot} /><Text style={styles.indicatorText}>{STRENGTH_COPY.activeCamera}</Text></View> : null}
     </View>
   );
 }
@@ -110,7 +110,7 @@ const webStyles = {
 };
 
 const styles = createThemedStyles({
-  stage: { position: 'relative', width: '100%', aspectRatio: 3 / 4, maxHeight: 620, overflow: 'hidden', borderRadius: 16, backgroundColor: '#121113' },
+  stage: { position: 'relative', width: '100%', height: '100%', overflow: 'hidden', borderRadius: 16, backgroundColor: '#121113' },
   loading: { position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: 'rgba(18,17,19,0.82)' },
   loadingText: { color: '#F7F4F5', fontSize: 14, lineHeight: 20 },
   indicator: { position: 'absolute', top: 12, left: 12, right: 12, minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 11, borderRadius: 12, backgroundColor: 'rgba(18,17,19,0.78)' },

@@ -23,6 +23,7 @@ import { useApp } from '../context/AppContext';
 import { localDateKey } from '../utils/dateKey';
 import { COLORS, createThemedStyles } from '../utils/constants';
 import { MotionScrollView, ScrollReveal, useReducedMotion } from '../components/Motion';
+import BrandMark from '../components/BrandMark';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const PHONE_MAX_WIDTH = 430;
@@ -74,12 +75,14 @@ function buildTimelineModel(periods, predictionDetail, predictionValue, checkins
   const predictedDays = new Set();
   const pmsDays = new Set();
   const symptomDays = new Set();
+  const checkinDays = new Set();
 
   normalizedPeriods.forEach((period) => addRange(loggedDays, period.start, period.end));
   if (prediction && predictionEnd) addRange(predictedDays, prediction, predictionEnd);
   if (pmsStart && pmsEnd) addRange(pmsDays, pmsStart, pmsEnd);
 
   (checkins || []).forEach((checkin) => {
+    if (checkin.date) checkinDays.add(checkin.date);
     if (checkin.date && ['light', 'medium', 'heavy'].includes(checkin.flow)) loggedDays.add(checkin.date);
     if (checkin.date && checkin.symptoms?.length) symptomDays.add(checkin.date);
   });
@@ -104,6 +107,7 @@ function buildTimelineModel(periods, predictionDetail, predictionValue, checkins
     predictedDays,
     pmsDays,
     symptomDays,
+    checkinDays,
     cycleLengths,
     predictionConfidence,
   };
@@ -115,6 +119,7 @@ function dateVisual(day, model) {
     predicted: model.predictedDays.has(key) && !model.loggedDays.has(key),
     pms: model.pmsDays.has(key) && !model.predictedDays.has(key) && !model.loggedDays.has(key),
     symptom: model.symptomDays.has(key),
+    checkin: model.checkinDays.has(key),
     today: isToday(day),
   };
 }
@@ -125,6 +130,7 @@ function dateStatus(visual) {
   else if (visual.predicted) labels.push('Estimated period');
   else if (visual.pms) labels.push('Estimated PMS window');
   if (visual.symptom) labels.push('Symptoms logged');
+  else if (visual.checkin) labels.push('Check-in logged');
   return labels.length ? labels.join(' · ') : 'No entries for this day';
 }
 
@@ -200,7 +206,7 @@ function CalendarToggle({ value, onChange }) {
   );
 }
 
-function TimelineHeader({ mode, focusDate, onModeChange, onMove, onClose }) {
+function TimelineHeader({ mode, focusDate, onModeChange, onMove, onToday, onClose }) {
   const title = mode === 'month' ? format(focusDate, 'MMMM yyyy') : String(getYear(focusDate));
   const subtitle = mode === 'month'
     ? 'Tap a day to see what you recorded.'
@@ -208,18 +214,40 @@ function TimelineHeader({ mode, focusDate, onModeChange, onMove, onClose }) {
 
   return (
     <View style={styles.header}>
-      <View style={styles.topBar}>
-        <Pressable
-          onPress={onClose}
-          accessibilityRole='button'
-          accessibilityLabel='Close timeline'
-          style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
-        >
-          <Ionicons name='close' size={23} color={COLORS.ink} />
-        </Pressable>
-        <CalendarToggle value={mode} onChange={onModeChange} />
-        <View style={styles.headerSpacer} />
-      </View>
+      {mode === 'month' ? (
+        <>
+          <View style={styles.brandBar}>
+            <BrandMark size='small' showWordmark={false} decorative />
+            <Text style={styles.brandTitle}>Bloom</Text>
+            <Pressable
+              onPress={onToday}
+              accessibilityRole='button'
+              accessibilityLabel='Return to the current month'
+              style={({ pressed, focused }) => [styles.todayButton, focused && styles.controlFocus, pressed && styles.pressed]}
+            >
+              <Ionicons name='calendar-outline' size={21} color={COLORS.brand} />
+            </Pressable>
+          </View>
+          <View style={styles.topBar}>
+            <View style={styles.headerSpacer} />
+            <CalendarToggle value={mode} onChange={onModeChange} />
+            <View style={styles.headerSpacer} />
+          </View>
+        </>
+      ) : (
+        <View style={[styles.topBar, styles.yearTopBar]}>
+          <Pressable
+            onPress={onClose}
+            accessibilityRole='button'
+            accessibilityLabel='Close timeline'
+            style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
+          >
+            <Ionicons name='close' size={23} color={COLORS.ink} />
+          </Pressable>
+          <CalendarToggle value={mode} onChange={onModeChange} />
+          <View style={styles.headerSpacer} />
+        </View>
+      )}
 
       <View style={styles.periodNavigation}>
         <Pressable
@@ -259,22 +287,22 @@ function CalendarDay({ day, model, selected, onSelect }) {
       accessibilityState={{ selected }}
       style={({ pressed }) => [styles.dayCell, pressed && styles.dayPressed]}
     >
-      <View style={styles.todaySlot}>
-        {visual.today ? <Text style={styles.todayLabel}>TODAY</Text> : null}
-      </View>
-      <View style={[styles.dayHalo, selected && styles.dayHaloSelected]}>
+      <View style={styles.todaySlot} />
+      <View style={[styles.dayHalo, visual.today && styles.dayHaloToday]}>
         <View style={[
           styles.dayCircle,
           visual.predicted && styles.predictedDay,
           visual.pms && styles.pmsDay,
           visual.logged && styles.loggedDay,
+          selected && styles.selectedDay,
         ]}>
-          {visual.predicted && !visual.logged ? <DottedRing size={34} color={COLORS.brand} /> : null}
+          {visual.predicted && !visual.logged && !selected ? <DottedRing size={34} color={COLORS.brand} /> : null}
           <Text style={[
             styles.dayNumber,
             visual.pms && styles.pmsText,
             visual.today && styles.todayNumber,
             visual.logged && styles.loggedText,
+            selected && styles.selectedDayText,
           ]}>
             {format(day, 'd')}
           </Text>
@@ -433,7 +461,7 @@ function CalendarLegend({ confidence }) {
   );
 }
 
-function CycleSummaryCard({ model, averageCycleLength }) {
+function CycleSummaryCard({ model, averageCycleLength, currentPhase }) {
   const latest = model.periods[model.periods.length - 1];
   const today = new Date();
   const currentCycleDay = latest && !isBefore(today, latest.start)
@@ -461,7 +489,11 @@ function CycleSummaryCard({ model, averageCycleLength }) {
         <View style={styles.cardIcon}><Ionicons name='calendar-clear-outline' size={19} color={COLORS.brand} /></View>
         <View style={styles.cardHeaderCopy}>
           <Text style={styles.cardTitle}>Current cycle</Text>
-          <Text style={styles.cardSubtitle}>{latest ? `Started ${format(latest.start, 'd MMMM')}` : 'Add a period start when you are ready'}</Text>
+          <Text style={styles.cardSubtitle}>{latest
+            ? currentCycleDay && currentPhase?.label
+              ? `Day ${currentCycleDay} · ${currentPhase.label}`
+              : `Started ${format(latest.start, 'd MMMM')}`
+            : 'Add a period start when you are ready'}</Text>
         </View>
         {currentCycleDay ? <Text style={styles.cycleDayValue}>{currentCycleDay} {currentCycleDay === 1 ? 'day' : 'days'}</Text> : null}
       </View>
@@ -516,41 +548,51 @@ function CycleSummaryCard({ model, averageCycleLength }) {
   );
 }
 
-function InsightRow({ label, value, note, last }) {
+function InsightRow({ label, value, last }) {
   return (
     <View style={[styles.insightRow, last && styles.insightRowLast]}>
-      <View style={styles.insightCopy}>
-        <Text style={styles.insightLabel}>{label}</Text>
-        <Text style={styles.insightNote}>{note}</Text>
-      </View>
+      <Text style={styles.insightLabel}>{label}</Text>
       <Text style={styles.insightValue}>{value}</Text>
     </View>
   );
 }
 
-function CycleInsightsCard({ model, averageCycleLength }) {
+function CycleInsightsCard({ model, averageCycleLength, currentPhase }) {
   const latest = model.periods[model.periods.length - 1];
+  const today = new Date();
+  const currentCycleDay = latest && !isBefore(today, latest.start)
+    ? differenceInCalendarDays(today, latest.start) + 1
+    : null;
   const previousCycle = model.cycleLengths[model.cycleLengths.length - 1];
   const previousPeriod = latest ? periodLength(latest) : null;
   const variation = model.cycleLengths.length >= 2
     ? Math.max(...model.cycleLengths) - Math.min(...model.cycleLengths)
     : null;
-  const cycleNote = previousCycle && averageCycleLength
-    ? Math.abs(previousCycle - averageCycleLength) <= 3
-      ? 'Within your usual pattern'
-      : previousCycle > averageCycleLength
-        ? 'Longer than recent cycles'
-        : 'Shorter than recent cycles'
-    : 'Log another cycle to compare';
+  const cycleLength = averageCycleLength || previousCycle || 28;
+  const progress = currentCycleDay
+    ? Math.max(2, Math.min(100, Math.round((currentCycleDay / cycleLength) * 100)))
+    : 0;
 
   return (
-    <View style={styles.insightsCard}>
+    <View style={styles.insightsSection}>
       <Text style={styles.sectionTitle}>A gentle read</Text>
-      <Text style={styles.sectionIntro}>These are observations from your dates, not medical conclusions.</Text>
-      <View style={styles.insightList}>
-        <InsightRow label='Previous cycle length' value={previousCycle ? `${previousCycle} days` : '—'} note={cycleNote} />
-        <InsightRow label='Previous period length' value={previousPeriod ? `${previousPeriod} days` : '—'} note={previousPeriod ? 'Saved from your latest entry' : 'No period length yet'} />
-        <InsightRow label='Cycle length variation' value={variation != null ? `${variation} days` : '—'} note={variation != null ? (variation <= 4 ? 'Fairly steady recently' : 'Cycles vary') : 'Two completed cycles are needed'} last />
+      <View style={styles.insightsCard}>
+        <View style={styles.gentleHeader}>
+          <Text style={styles.gentleDay}>{currentCycleDay ? `Day ${currentCycleDay}` : 'Cycle day —'}</Text>
+          <Text numberOfLines={1} style={styles.gentlePhase}>{currentPhase?.label || 'Add a period to begin'}</Text>
+        </View>
+        <View
+          style={styles.gentleTrack}
+          accessibilityRole='progressbar'
+          accessibilityValue={{ min: 0, max: 100, now: progress }}
+        >
+          <View style={[styles.gentleProgress, { width: `${progress}%` }]} />
+        </View>
+        <View style={styles.insightList}>
+          <InsightRow label='Previous cycle length' value={previousCycle ? `${previousCycle} days` : '—'} />
+          <InsightRow label='Period length' value={previousPeriod ? `${previousPeriod} days` : '—'} />
+          <InsightRow label='Variation' value={variation != null ? `± ${Math.ceil(variation / 2)} ${Math.ceil(variation / 2) === 1 ? 'day' : 'days'}` : '—'} last />
+        </View>
       </View>
     </View>
   );
@@ -618,7 +660,7 @@ function CycleHistory({ model, onLogPrevious }) {
   );
 }
 
-function EditPeriodButton({ onPress, hasPeriods }) {
+function EditPeriodButton({ onPress, title = 'Log period dates', icon = 'water' }) {
   return (
     <View style={styles.bottomAction}>
       <Pressable
@@ -626,8 +668,8 @@ function EditPeriodButton({ onPress, hasPeriods }) {
         accessibilityRole='button'
         style={({ pressed }) => [styles.editButton, pressed && styles.editButtonPressed]}
       >
-        <Ionicons name='create-outline' size={20} color={COLORS.white} />
-        <Text style={styles.editButtonText}>{hasPeriods ? 'Edit latest period' : 'Log period dates'}</Text>
+        <Ionicons name={icon} size={20} color={COLORS.white} />
+        <Text style={styles.editButtonText}>{title}</Text>
       </Pressable>
     </View>
   );
@@ -668,6 +710,13 @@ export default function TimelineScreen({ navigation }) {
     setMode('month');
   }
 
+  function returnToCurrentMonth() {
+    const today = new Date();
+    setFocusDate(today);
+    setSelectedDate(today);
+    setMode('month');
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={[styles.phoneShell, mode === 'year' && styles.yearShell]}>
@@ -676,6 +725,7 @@ export default function TimelineScreen({ navigation }) {
           focusDate={focusDate}
           onModeChange={changeMode}
           onMove={movePeriod}
+          onToday={returnToCurrentMonth}
           onClose={() => navigation.navigate('Today')}
         />
 
@@ -702,14 +752,18 @@ export default function TimelineScreen({ navigation }) {
           )}
 
           <ScrollReveal><CalendarLegend confidence={model.predictionConfidence} /></ScrollReveal>
-          <ScrollReveal><CycleSummaryCard model={model} averageCycleLength={state.averageCycleLength} /></ScrollReveal>
-          <ScrollReveal><CycleInsightsCard model={model} averageCycleLength={state.averageCycleLength} /></ScrollReveal>
+          <ScrollReveal><CycleInsightsCard model={model} averageCycleLength={state.averageCycleLength} currentPhase={state.currentPhase} /></ScrollReveal>
           <ScrollReveal><CycleHistory model={model} onLogPrevious={() => navigation.navigate('LogPeriod')} /></ScrollReveal>
         </MotionScrollView>
 
         <EditPeriodButton
-          hasPeriods={Boolean(model.periods.length)}
+          title={mode === 'month' ? 'Log period dates' : model.periods.length ? 'Edit latest period' : 'Log period dates'}
+          icon={mode === 'month' ? 'water' : 'create-outline'}
           onPress={() => {
+            if (mode === 'month') {
+              navigation.navigate('LogPeriod');
+              return;
+            }
             const latest = model.periods[model.periods.length - 1];
             navigation.navigate('LogPeriod', latest ? { periodId: latest.id || latest.startDate } : undefined);
           }}
@@ -722,7 +776,9 @@ export default function TimelineScreen({ navigation }) {
 const styles = createThemedStyles({
   safeArea: {
     flex: 1,
+    minHeight: 0,
     backgroundColor: COLORS.surfaceWarm,
+    ...Platform.select({ web: { height: '100vh', maxHeight: '100vh', overflow: 'hidden' } }),
   },
   phoneShell: {
     flex: 1,
@@ -734,16 +790,44 @@ const styles = createThemedStyles({
   yearShell: { maxWidth: 720 },
   header: {
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 0,
     paddingBottom: 8,
     backgroundColor: COLORS.surfaceWarm,
+  },
+  brandBar: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.hairline,
+  },
+  brandTitle: {
+    position: 'absolute',
+    left: 44,
+    right: 44,
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: '700',
+    color: COLORS.brand,
+    textAlign: 'center',
+    pointerEvents: 'none',
+  },
+  todayButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   topBar: {
     minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginTop: 12,
   },
+  yearTopBar: { marginTop: 0 },
   closeButton: {
     width: 44,
     height: 44,
@@ -844,6 +928,8 @@ const styles = createThemedStyles({
   },
   scroll: {
     flex: 1,
+    minHeight: 0,
+    ...Platform.select({ web: { overflowY: 'auto', overscrollBehavior: 'contain' } }),
   },
   scrollContent: {
     paddingHorizontal: 16,
@@ -897,16 +983,9 @@ const styles = createThemedStyles({
     opacity: 0.58,
   },
   todaySlot: {
-    height: 11,
+    height: 7,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  todayLabel: {
-    fontSize: 7,
-    lineHeight: 9,
-    fontWeight: '800',
-    letterSpacing: 0.35,
-    color: COLORS.brand,
   },
   dayHalo: {
     width: 40,
@@ -917,8 +996,8 @@ const styles = createThemedStyles({
     borderWidth: 1,
     borderColor: 'transparent',
   },
-  dayHaloSelected: {
-    borderColor: COLORS.ink,
+  dayHaloToday: {
+    borderColor: COLORS.sage,
   },
   dayCircle: {
     position: 'relative',
@@ -956,7 +1035,14 @@ const styles = createThemedStyles({
   loggedDay: {
     backgroundColor: COLORS.cycle,
   },
+  selectedDay: {
+    backgroundColor: COLORS.brand,
+  },
   loggedText: {
+    color: COLORS.white,
+    fontWeight: '800',
+  },
+  selectedDayText: {
     color: COLORS.white,
     fontWeight: '800',
   },
@@ -1252,14 +1338,17 @@ const styles = createThemedStyles({
     lineHeight: 19,
     color: COLORS.body,
   },
+  insightsSection: {
+    marginTop: 2,
+  },
   insightsCard: {
-    marginTop: 14,
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    marginTop: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: COLORS.hairline,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.surfaceSoft,
   },
   sectionTitle: {
     fontSize: 18,
@@ -1268,48 +1357,64 @@ const styles = createThemedStyles({
     letterSpacing: -0.2,
     color: COLORS.ink,
   },
-  sectionIntro: {
-    marginTop: 3,
-    marginBottom: 7,
+  gentleHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  gentleDay: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '700',
+    color: COLORS.ink,
+  },
+  gentlePhase: {
+    flexShrink: 1,
     fontSize: 12,
     lineHeight: 17,
     color: COLORS.muted,
+    textAlign: 'right',
+  },
+  gentleTrack: {
+    height: 6,
+    marginTop: 8,
+    borderRadius: 3,
+    backgroundColor: COLORS.hairline,
+    overflow: 'hidden',
+  },
+  gentleProgress: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.brand,
   },
   insightList: {
-    marginTop: 2,
+    marginTop: 12,
   },
   insightRow: {
-    minHeight: 66,
+    minHeight: 38,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 10,
+    justifyContent: 'space-between',
+    gap: 16,
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.hairline,
   },
   insightRowLast: {
     borderBottomWidth: 0,
   },
-  insightCopy: {
-    flex: 1,
-  },
   insightLabel: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '700',
-    color: COLORS.ink,
-  },
-  insightNote: {
-    marginTop: 2,
-    fontSize: 11,
-    lineHeight: 16,
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
     color: COLORS.muted,
   },
   insightValue: {
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '800',
-    color: COLORS.brand,
+    fontWeight: '700',
+    color: COLORS.ink,
     textAlign: 'right',
   },
   historySection: {
@@ -1436,7 +1541,7 @@ const styles = createThemedStyles({
     paddingBottom: 12,
     borderTopWidth: 1,
     borderTopColor: COLORS.hairline,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.canvas,
   },
   editButton: {
     minHeight: 52,
@@ -1444,7 +1549,7 @@ const styles = createThemedStyles({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    borderRadius: 12,
+    borderRadius: 999,
     backgroundColor: COLORS.brand,
   },
   editButtonPressed: {

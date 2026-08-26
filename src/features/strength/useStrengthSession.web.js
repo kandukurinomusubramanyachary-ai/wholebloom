@@ -28,7 +28,7 @@ function baselineFrom(landmarks) {
 }
 
 export default function useStrengthSession({ uid, navigation }) {
-  const [phase, setPhase] = useState('learn');
+  const [phase, setPhase] = useState('select');
   const [exerciseId, setExerciseId] = useState('bodyweight-squat-v1');
   const [instruction, setInstruction] = useState('Looking for you…');
   const [calibrationGood, setCalibrationGood] = useState(false);
@@ -39,7 +39,12 @@ export default function useStrengthSession({ uid, navigation }) {
   const [showSkeleton, setShowSkeleton] = useState(true);
   const [cueText, setCueText] = useState('');
   const [summaryResult, setSummaryResult] = useState(null);
+  const [summaryError, setSummaryError] = useState(null);
+  const [savingSummary, setSavingSummary] = useState(false);
+  const [cameraFailure, setCameraFailure] = useState(null);
   const runtime = useRef({ engine: null, scheduler: null, positioning: null, calibrationCompleted: false, baseline: null, startedAt: null, pausedAt: null, pauseCount: 0, repDurations: [], cueCounts: {}, ended: false });
+  const pendingSummary = useRef(null);
+  const summarySaveLock = useRef(false);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
   const voice = useRef(createVoiceCoach({ rate: STRENGTH_DEFAULTS.speechRate, pitch: STRENGTH_DEFAULTS.speechPitch }));
@@ -47,23 +52,57 @@ export default function useStrengthSession({ uid, navigation }) {
 
   useEffect(() => { voice.current.setMuted(muted); }, [muted]);
   useEffect(() => {
-    void flushStrengthOutbox(uid);
+    const flush = () => flushStrengthOutbox(uid).catch((error) => {
+      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        console.warn('[Strength] Background sync could not read or write the local outbox.', error);
+      }
+    });
+    void flush();
     const timers = STRENGTH_DEFAULTS.outboxRetryMs.map((delay) => setTimeout(() => {
-      void flushStrengthOutbox(uid);
+      void flush();
     }, delay));
     return () => timers.forEach(clearTimeout);
   }, [uid]);
 
   const resetRuntime = useCallback(() => {
     runtime.current = { engine: null, scheduler: null, positioning: null, calibrationCompleted: false, baseline: null, startedAt: null, pausedAt: null, pauseCount: 0, repDurations: [], cueCounts: {}, ended: false };
+    setCameraFailure(null);
     voice.current.cancel(); setReps(0); setCueText(''); setPauseReason(null); setCalibrationGood(false); setInstruction('Looking for you…');
   }, []);
+
+  const persistPendingSummary = useCallback(async (pending) => {
+    if (!pending || summarySaveLock.current) return;
+    summarySaveLock.current = true;
+    setSavingSummary(true);
+    setSummaryError(null);
+    try {
+      const saved = await saveStrengthSummary(uid, pending.summary);
+      pendingSummary.current = null;
+      setSummaryResult({
+        ...saved,
+        observation: buildStrengthObservation(saved.summary, pending.repDurations),
+        focus: buildStrengthFocus(saved.summary.cueCounts || {}),
+      });
+      setPhase('summary');
+      trackStrengthEvent(pending.eventName, pending.eventProperties);
+    } catch (error) {
+      setSummaryError('Bloom could not save this set on your device. Your result is still here—please try again.');
+      setPhase('save_error');
+      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        console.error('[Strength] Session summary persistence failed.', error);
+      }
+    } finally {
+      summarySaveLock.current = false;
+      setSavingSummary(false);
+    }
+  }, [uid]);
 
   const finish = useCallback(async (completionState = 'stopped', acceptedReps = reps) => {
     const current = runtime.current;
     if (current.ended || !current.startedAt) { setPhase('select'); return; }
     current.ended = true;
     voice.current.cancel();
+    setPhase('saving');
     const completedAt = new Date();
     const safeSummary = {
       id: sessionId(), exerciseId: exercise.id, exerciseVersion: exercise.exerciseVersion,
@@ -73,15 +112,15 @@ export default function useStrengthSession({ uid, navigation }) {
       pauseCount: current.pauseCount, cueCounts: current.scheduler?.snapshot() || {},
       completionState, platform: Platform.OS, privacyVersion: 1,
     };
-    const saved = await saveStrengthSummary(uid, safeSummary);
-    setSummaryResult({
-      ...saved,
-      observation: buildStrengthObservation(saved.summary, current.repDurations),
-      focus: buildStrengthFocus(saved.summary.cueCounts || {}),
-    });
-    setPhase('summary');
-    trackStrengthEvent(completionState === 'completed' ? 'strength_session_completed' : 'strength_session_stopped', { exerciseId: exercise.id, completionState, acceptedReps, targetReps: STRENGTH_DEFAULTS.targetReps, platform: Platform.OS });
-  }, [exercise, reps, uid]);
+    const pending = {
+      summary: safeSummary,
+      repDurations: [...current.repDurations],
+      eventName: completionState === 'completed' ? 'strength_session_completed' : 'strength_session_stopped',
+      eventProperties: { exerciseId: exercise.id, completionState, acceptedReps, targetReps: STRENGTH_DEFAULTS.targetReps, platform: Platform.OS },
+    };
+    pendingSummary.current = pending;
+    await persistPendingSummary(pending);
+  }, [exercise, persistPendingSummary, reps]);
 
   const onFrame = useCallback((frame) => {
     const current = runtime.current;
@@ -132,9 +171,17 @@ export default function useStrengthSession({ uid, navigation }) {
     }
   }, [exercise, finish, pauseReason, phase]);
 
-  const beginCamera = useCallback(() => { resetRuntime(); setPhase('loading'); trackStrengthEvent('strength_camera_requested', { exerciseId: exercise.id, platform: Platform.OS }); }, [exercise.id, resetRuntime]);
+  const beginCamera = useCallback(() => { resetRuntime(); setCameraFailure(null); setPhase('loading'); trackStrengthEvent('strength_camera_requested', { exerciseId: exercise.id, platform: Platform.OS }); }, [exercise.id, resetRuntime]);
   const cameraReady = useCallback(() => { setPhase('calibrating'); trackStrengthEvent('strength_camera_result', { exerciseId: exercise.id, result: 'granted', platform: Platform.OS }); }, [exercise.id]);
-  const cameraError = useCallback((error) => { setInstruction(error?.name === 'NotAllowedError' ? STRENGTH_COPY.permissionDenied : STRENGTH_COPY.modelFailed); setPhase('permission'); trackStrengthEvent('strength_camera_result', { exerciseId: exercise.id, result: error?.name === 'NotAllowedError' ? 'denied' : 'failed', platform: Platform.OS }); }, [exercise.id]);
+  const cameraError = useCallback((error) => {
+    const denied = ['NotAllowedError', 'SecurityError'].includes(error?.name);
+    const busy = error?.name === 'NotReadableError';
+    const message = denied ? STRENGTH_COPY.permissionDenied : busy ? STRENGTH_COPY.cameraBusy : STRENGTH_COPY.modelFailed;
+    setInstruction(message);
+    setCameraFailure({ kind: denied ? 'denied' : busy ? 'busy' : 'failed', message });
+    setPhase('permission');
+    trackStrengthEvent('strength_camera_result', { exerciseId: exercise.id, result: denied ? 'denied' : 'failed', platform: Platform.OS });
+  }, [exercise.id]);
   const startCountdown = useCallback(() => { setCountdown(3); setPhase('countdown'); voice.current.speak(STRENGTH_COPY.readyThree); }, []);
 
   useEffect(() => {
@@ -172,8 +219,12 @@ export default function useStrengthSession({ uid, navigation }) {
   return {
     phase, setPhase, exercise, exerciseId, setExerciseId, instruction, calibrationGood,
     countdown, reps, pauseReason, muted, setMuted, showSkeleton, setShowSkeleton, cueText,
-    summaryResult, beginCamera, cameraReady, cameraError, onFrame, startCountdown, togglePause,
-    stop: () => void finish('stopped'), reset: () => { resetRuntime(); setSummaryResult(null); setPhase('select'); },
+    summaryResult, summaryError, savingSummary, cameraFailure,
+    beginCamera, cameraReady, cameraError, onFrame, startCountdown, togglePause,
+    stop: () => void finish('stopped'),
+    retrySummary: () => void persistPendingSummary(pendingSummary.current),
+    discardPendingSummary: () => { pendingSummary.current = null; setSummaryError(null); resetRuntime(); setPhase('select'); },
+    reset: () => { pendingSummary.current = null; resetRuntime(); setSummaryResult(null); setSummaryError(null); setPhase('select'); },
     cameraActive: ['loading', 'calibrating', 'ready', 'countdown', 'active', 'paused'].includes(phase),
     inferenceActive: ['calibrating', 'ready', 'countdown', 'active'].includes(phase) || (phase === 'paused' && pauseReason !== 'manual' && pauseReason !== 'page_hidden'),
     voiceAvailable: voice.current.available,

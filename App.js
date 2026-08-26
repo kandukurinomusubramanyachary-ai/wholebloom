@@ -8,13 +8,13 @@ import AuthScreen from './src/screens/AuthScreen';
 import SplashScreen from './src/screens/SplashScreen';
 import StartupDiagnosticScreen from './src/components/StartupDiagnosticScreen';
 import { markStartupReady } from './src/diagnostics/startupDiagnostics';
-import { setActiveTheme } from './src/utils/constants';
+import { setActiveTheme, statusBarStyleForTheme } from './src/utils/constants';
 
 function AuthenticatedBloom() {
   const { state } = useApp();
   return (
     <>
-      <StatusBar style={state.resolvedTheme === 'dark' ? 'light' : 'dark'} />
+      <StatusBar style={statusBarStyleForTheme(state.resolvedTheme)} />
       <RootNavigator />
     </>
   );

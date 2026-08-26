@@ -27,8 +27,11 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.bloom.app",
       "buildNumber": "2",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "infoPlist": {
-        "NSFaceIDUsageDescription": "Bloom uses Face ID to protect your health data."
+        "NSFaceIDUsageDescription": "Allow Bloom to use Face ID to protect your private health records."
       }
     },
     "android": {
@@ -52,8 +55,14 @@
     },
     "plugins": [
       "expo-splash-screen",
-      "expo-local-authentication",
-      "expo-notifications"
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow Bloom to use Face ID to protect your private health records."
+        }
+      ],
+      "expo-notifications",
+      "expo-secure-store"
     ],
     "extra": {
       "eas": {

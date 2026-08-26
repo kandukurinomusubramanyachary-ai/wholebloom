@@ -11,6 +11,7 @@ import { KEYS, storage } from '../services/storage';
 import { useAuth } from './AuthContext';
 import {
   deleteAllCurrentUserTrackingData,
+  deleteCurrentUserProfileDocument,
   deleteCurrentUserCheckin,
   deleteCurrentUserPeriod,
   loadCurrentUserData,
@@ -60,6 +61,7 @@ import {
 } from '../utils/helpers';
 import { localDateKey } from '../utils/dateKey';
 import { setStartupStage } from '../diagnostics/startupDiagnostics';
+import { logCheckinEvent } from '../diagnostics/checkinDiagnostics';
 import { cleanThemePreference, setActiveTheme } from '../utils/constants';
 
 const AppContext = createContext();
@@ -475,6 +477,20 @@ export function AppProvider({ children }) {
     return updated;
   }
 
+  async function setThemePreference(value) {
+    const theme = cleanThemePreference(value);
+    const previous = state.settings;
+    const updated = { ...state.settings, theme };
+    dispatch({ type: 'SET_SETTINGS', payload: updated });
+    try {
+      await storage.setSettings(updated);
+      return theme;
+    } catch (error) {
+      dispatch({ type: 'SET_SETTINGS', payload: previous });
+      throw error;
+    }
+  }
+
   async function refreshPlan(date, overrides = {}) {
     const checkin = overrides.checkin !== undefined
       ? overrides.checkin
@@ -493,7 +509,7 @@ export function AppProvider({ children }) {
     const target = parseISO(checkin.date);
     if (!isValid(target) || target > new Date()) return state.periods;
     const nearby = [...state.periods]
-      .filter((item) => item.startDate && isValid(parseISO(item.startDate)))
+      .filter((item) => typeof item?.startDate === 'string' && isValid(parseISO(item.startDate)))
       .sort((a, b) => b.startDate.localeCompare(a.startDate))
       .find((item) => {
         const distance = differenceInCalendarDays(target, parseISO(item.startDate));
@@ -547,15 +563,49 @@ export function AppProvider({ children }) {
 
   async function saveCheckin(checkin) {
     const normalized = normalizeCheckin({ ...checkin, updatedAt: new Date().toISOString() });
-    const saved = normalizeCheckin(await persist(() => saveCurrentUserCheckin(normalized)));
+    let saved;
+    try {
+      logCheckinEvent('database_request_start', {
+        hasUser: Boolean(user),
+        isEditing: state.checkins.some((item) => item.date === normalized?.date),
+        source: 'AppContext',
+      });
+      saved = normalizeCheckin(await persist(() => saveCurrentUserCheckin(normalized)));
+      if (!saved) throw new Error('The saved check-in response was invalid.');
+      logCheckinEvent('database_result', {
+        result: 'success',
+        source: 'AppContext',
+      });
+    } catch (error) {
+      logCheckinEvent('caught_error', {
+        hasUser: Boolean(user),
+        stage: 'database_save',
+        source: 'AppContext',
+      }, error);
+      throw error;
+    }
     const checkins = upsertValue(
       state.checkins,
       saved,
       (item) => item.date === saved.date
     );
     dispatch({ type: 'SET_CHECKINS', payload: normalizeCollection(checkins, normalizeCheckin) });
-    await syncBleedingToPeriod(saved);
-    await refreshPlan(saved.date, { checkin: saved });
+    try {
+      await syncBleedingToPeriod(saved);
+    } catch (error) {
+      logCheckinEvent('caught_error', {
+        stage: 'period_sync_after_save',
+        source: 'AppContext',
+      }, error);
+    }
+    try {
+      await refreshPlan(saved.date, { checkin: saved });
+    } catch (error) {
+      logCheckinEvent('caught_error', {
+        stage: 'plan_refresh_after_save',
+        source: 'AppContext',
+      }, error);
+    }
     return saved;
   }
 
@@ -773,11 +823,25 @@ export function AppProvider({ children }) {
     await loadInitialData();
   }
 
+  async function deleteAllAccountData() {
+    await persist(async () => {
+      await Promise.all([
+        deleteAllCurrentUserTrackingData(),
+        deleteAllCurrentUserMegData(),
+        deleteAllCurrentUserDietData(user.uid),
+        storage.deleteAllData(),
+      ]);
+      await deleteCurrentUserProfileDocument();
+    });
+    dispatch({ type: 'RESET_FOR_USER' });
+  }
+
   const value = {
     state: publicState,
     dispatch,
     saveProfile,
     saveSettings,
+    setThemePreference,
     saveCheckin,
     deleteCheckin,
     savePeriod,
@@ -798,6 +862,7 @@ export function AppProvider({ children }) {
     toggleBookmark,
     savePrivacy,
     resetAllData,
+    deleteAllAccountData,
     loadInitialData,
   };
 

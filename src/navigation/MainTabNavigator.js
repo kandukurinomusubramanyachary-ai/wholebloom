@@ -9,8 +9,9 @@ import { LotusMark } from '../components/BrandMark';
 import TodayScreen from '../screens/TodayScreen';
 import TimelineScreen from '../screens/TimelineScreen';
 import MegScreen from '../screens/MegScreen';
-import InsightsScreen from '../screens/InsightsScreen';
 import DietScreen from '../screens/DietScreen';
+import StrengthScreen from '../features/strength/StrengthScreen';
+import { isStrengthEnabled } from '../features/strength/featureFlag';
 
 const Tab = createBottomTabNavigator();
 
@@ -18,7 +19,7 @@ const tabs = [
   { name: 'Today', component: TodayScreen, icon: 'bloom' },
   { name: 'Timeline', component: TimelineScreen, icon: 'calendar' },
   { name: 'Meg', component: MegScreen, icon: 'chatbubbles' },
-  { name: 'Insights', component: InsightsScreen, icon: 'analytics' },
+  ...(isStrengthEnabled() ? [{ name: 'Strength', component: StrengthScreen, icon: 'fitness' }] : []),
   { name: 'Diet', component: DietScreen, icon: 'nutrition' },
 ];
 
@@ -73,6 +74,7 @@ function BloomTabBar({ state, descriptors, navigation }) {
   const [dockWidth, setDockWidth] = useState(0);
   const activeIndex = useRef(new Animated.Value(state.index)).current;
   const segmentWidth = dockWidth ? dockWidth / state.routes.length : 0;
+  const focusedOptions = descriptors[state.routes[state.index]?.key]?.options || {};
 
   useEffect(() => {
     Animated.timing(activeIndex, {
@@ -98,9 +100,10 @@ function BloomTabBar({ state, descriptors, navigation }) {
   }, []);
 
   if (keyboardVisible) return null;
+  if (focusedOptions.tabBarStyle?.display === 'none') return null;
 
   return (
-    <View style={[styles.tabBarFrame, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+    <View style={[styles.tabBarFrame, { paddingBottom: Math.max(insets.bottom, 4) }]}>
       <View style={styles.tabBar} onLayout={(event) => setDockWidth(event.nativeEvent.layout.width)}>
         {segmentWidth ? (
           <Animated.View
@@ -108,7 +111,7 @@ function BloomTabBar({ state, descriptors, navigation }) {
               styles.activeSurface,
               styles.nonInteractive,
               {
-                width: Math.max(0, segmentWidth - 8),
+                width: Math.max(0, segmentWidth - 4),
                 transform: [{ translateX: Animated.multiply(activeIndex, segmentWidth) }],
               },
             ]}
@@ -183,51 +186,41 @@ const styles = createThemedStyles({
   tabBarFrame: {
     width: '100%',
     alignItems: 'center',
-    paddingTop: 7,
-    paddingHorizontal: 12,
+    paddingTop: 4,
+    paddingHorizontal: 8,
     backgroundColor: COLORS.canvas,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.hairline,
   },
   tabBar: {
     position: 'relative',
     width: '100%',
-    maxWidth: 696,
-    height: 64,
+    maxWidth: 720,
+    height: 58,
     flexDirection: 'row',
     alignItems: 'stretch',
-    padding: 4,
-    borderRadius: 16,
-    backgroundColor: COLORS.white,
+    padding: 2,
+    borderRadius: 0,
+    backgroundColor: COLORS.canvas,
     overflow: 'hidden',
-    ...Platform.select({
-      web: {
-        boxShadow: '0 2px 8px rgba(34, 34, 34, 0.10)',
-      },
-      default: {
-        shadowColor: '#222222',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 4,
-      },
-    }),
   },
   activeSurface: {
     position: 'absolute',
-    top: 4,
-    left: 4,
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: COLORS.surfaceSoft,
+    top: 2,
+    left: 2,
+    height: 54,
+    borderRadius: 18,
+    backgroundColor: COLORS.brandSoft,
   },
   nonInteractive: { pointerEvents: 'none' },
   tabButton: {
     zIndex: 1,
     flex: 1,
     minWidth: 0,
-    minHeight: 56,
+    minHeight: 54,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
+    borderRadius: 18,
     ...Platform.select({
       web: {
         cursor: 'pointer',
@@ -238,7 +231,7 @@ const styles = createThemedStyles({
       },
     }),
   },
-  tabButtonHovered: { backgroundColor: 'rgba(247,247,245,0.68)' },
+  tabButtonHovered: { backgroundColor: COLORS.surfaceSoft },
   tabButtonFocused: {
     ...Platform.select({
       web: {
@@ -263,9 +256,9 @@ const styles = createThemedStyles({
   },
   activeDotHidden: { opacity: 0 },
   tabLabel: {
-    marginTop: 2,
-    fontSize: 11,
-    lineHeight: 14,
+    marginTop: 1,
+    fontSize: 10,
+    lineHeight: 13,
     maxWidth: '100%',
     textAlign: 'center',
     color: COLORS.muted,

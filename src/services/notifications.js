@@ -32,26 +32,35 @@ class NotificationService {
     return finalStatus === 'granted';
   }
 
-  async scheduleReminder(identifier, title, body, hour, minute, repeats = true) {
+  async scheduleReminder(identifier, title, body, hour, minute, repeats = true, weekday = null) {
     configureNotificationHandler();
     await this.cancelReminder(identifier);
-    
-    const trigger = {
-      hour,
-      minute,
-      repeats,
-    };
+
+    if (!Number.isInteger(hour) || hour < 0 || hour > 23
+      || !Number.isInteger(minute) || minute < 0 || minute > 59) {
+      throw new Error('Reminder time is invalid.');
+    }
+
+    const trigger = Number.isInteger(weekday) && weekday >= 1 && weekday <= 7
+      ? { weekday, hour, minute, repeats: true }
+      : { hour, minute, repeats };
     
     if (Platform.OS === 'android') {
       trigger.channelId = 'bloom-reminders';
     }
     
-    return await Notifications.scheduleNotificationAsync({
+    const content = {
+      title,
+      body,
+      sound: false,
+      ...(Platform.OS === 'android'
+        ? { priority: Notifications.AndroidNotificationPriority.LOW }
+        : {}),
+    };
+
+    return Notifications.scheduleNotificationAsync({
       content: {
-        title,
-        body,
-        sound: false,
-        priority: Notifications.AndroidNotificationPriority.LOW,
+        ...content,
       },
       trigger,
       identifier,
@@ -70,7 +79,7 @@ class NotificationService {
 
   async getScheduledReminders() {
     configureNotificationHandler();
-    return await Notifications.getAllScheduledNotificationsAsync();
+    return Notifications.getAllScheduledNotificationsAsync();
   }
 
   async setupAndroidChannel() {

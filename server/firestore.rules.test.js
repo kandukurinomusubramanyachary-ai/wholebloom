@@ -151,6 +151,25 @@ function validDietObservation(id = 'diet-observation-steady', overrides = {}) {
   };
 }
 
+function validStrengthSession(id = 'strength-1', overrides = {}) {
+  return {
+    id,
+    exerciseId: 'bodyweight-squat-v1',
+    exerciseVersion: 1,
+    startedAt: serverTimestamp(),
+    completedAt: serverTimestamp(),
+    durationSeconds: 48,
+    targetReps: 8,
+    acceptedReps: 8,
+    pauseCount: 1,
+    cueCounts: { slowDown: 1 },
+    completionState: 'completed',
+    platform: 'web',
+    privacyVersion: 1,
+    ...overrides,
+  };
+}
+
 before(async () => {
   const { host, port } = firestoreEmulatorAddress();
   testEnvironment = await initializeTestEnvironment({
@@ -190,6 +209,20 @@ test('an owner can read and write their profile, period, check-in and Diet docum
     await assertSucceeds(setDoc(reference, value));
     await assertSucceeds(getDoc(reference));
   }
+});
+
+test('Strength summaries are owner-only and reject camera-derived payloads', async () => {
+  const ownerDb = testEnvironment.authenticatedContext('user-a').firestore();
+  const otherDb = testEnvironment.authenticatedContext('user-b').firestore();
+  const reference = doc(ownerDb, 'users/user-a/strengthSessions/strength-1');
+
+  await assertSucceeds(setDoc(reference, validStrengthSession()));
+  await assertSucceeds(getDoc(reference));
+  await assertFails(getDoc(doc(otherDb, 'users/user-a/strengthSessions/strength-1')));
+  await assertFails(setDoc(
+    doc(ownerDb, 'users/user-a/strengthSessions/unsafe'),
+    validStrengthSession('unsafe', { landmarks: [{ x: 0.5, y: 0.5 }] })
+  ));
 });
 
 test('one authenticated user cannot read or write another user\'s period or Diet data', async () => {

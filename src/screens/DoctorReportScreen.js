@@ -235,7 +235,7 @@ export default function DoctorReportScreen({ navigation }) {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps='handled'
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={Platform.OS === 'web'}
       >
         <View style={styles.content}>
           <Pressable
@@ -618,10 +618,28 @@ export default function DoctorReportScreen({ navigation }) {
 const styles = createThemedStyles({
   safeArea: {
     flex: 1,
+    minHeight: 0,
     backgroundColor: COLORS.canvas,
+    ...Platform.select({
+      web: {
+        height: '100vh',
+        maxHeight: '100vh',
+        overflow: 'hidden',
+      },
+      default: {},
+    }),
   },
   scroll: {
     flex: 1,
+    minHeight: 0,
+    ...Platform.select({
+      web: {
+        height: '100%',
+        maxHeight: '100%',
+        overflowY: 'auto',
+      },
+      default: {},
+    }),
   },
   scrollContent: {
     paddingBottom: 48,

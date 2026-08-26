@@ -34,6 +34,14 @@ const MAX_MESSAGE_LENGTH = 2000;
 const MAX_HISTORY_MESSAGES = 8;
 const MAX_RECEIVED_HISTORY = 20;
 const DEFAULT_TIMEOUT_MS = 90000;
+const MODE_GENERATION_OPTIONS = Object.freeze({
+  listen: Object.freeze({ temperature: 0.5, num_predict: 160 }),
+  understand: Object.freeze({ temperature: 0.35, num_predict: 200 }),
+  plan: Object.freeze({ temperature: 0.4, num_predict: 170 }),
+  conversation: Object.freeze({ temperature: 0.45, num_predict: 190 }),
+  doctor: Object.freeze({ temperature: 0.3, num_predict: 200 }),
+  fallback: Object.freeze({ temperature: 0.45, num_predict: 180 }),
+});
 const DEV_CORS_HOSTS = ['localhost', '127.0.0.1'];
 const DEV_CORS_PORT_MIN = 8081;
 const DEV_CORS_PORT_MAX = 8090;
@@ -43,6 +51,10 @@ const DEFAULT_DEV_CORS_ORIGINS = DEV_CORS_HOSTS.flatMap((host) => (
     (_value, index) => `http://${host}:${DEV_CORS_PORT_MIN + index}`
   )
 ));
+
+function generationOptionsForMode(mode) {
+  return MODE_GENERATION_OPTIONS[cleanMegMode(mode)] || MODE_GENERATION_OPTIONS.fallback;
+}
 
 function cleanHistory(history) {
   if (history === undefined) return [];
@@ -76,7 +88,7 @@ function revisionInstruction(userMessage, draft) {
   const questionCount = (draft.match(/\?/g) || []).length;
   const hasListOrHeading = /^\s*(?:[-*•]|\d+[.)]|#{1,6}\s)/m.test(draft)
     || /\b(?:common causes|what you can do|when to see (?:a |your )?doctor)\b/i.test(draft);
-  const hasBannedOpener = /^(?:it can be unsettling|it(?:'|’)s understandable that|i understand this can be worrying|that sounds frustrating|i(?:'|’)m sorry you(?:'|’)re going through this|many women experience|while i cannot diagnose|thank you for sharing that)\b/i.test(draft.trim());
+  const hasBannedOpener = /^(?:it can be unsettling|it(?:'|’)s understandable that|i understand this can be worrying|that sounds frustrating|i(?:'|’)m sorry you(?:'|’)re going through this|many women experience|while i cannot diagnose|thank you for sharing that|your feelings are valid|your body is not broken)\b/i.test(draft.trim());
   const usesTenglish = /\b(?:nunchi|raaledu|raledu|raavatledu|chala|undi|ostundi|naaku|valla|anipinchatledu|ippudu|tension|gurunchi|eeroju)\b/i.test(userMessage);
   const replyUsesTenglish = /\b(?:nunchi|raaka|raaledu|raledu|raavatledu|chala|undi|untundi|ostundi|naaku|valla|anipinchatledu|ippudu|tension|gurunchi|eeroju|enti)\b/i.test(draft);
   const hasTeluguScript = /[\u0C00-\u0C7F]/.test(draft);
@@ -97,8 +109,8 @@ function revisionInstruction(userMessage, draft) {
   } else if (urgentPhysical) {
     rules.push('Return exactly these two sentences and nothing else: "What you described needs urgent medical attention now." "Please ask someone nearby to take you to urgent care or call emergency help — can you do that safely?"');
   } else {
-    if (wordCount > 120 || sentenceCount > 5 || questionCount > 1 || hasListOrHeading || hasBannedOpener) {
-      rules.push('Use two to five natural sentences, no headings or bullet lists, no banned generic opener, and no more than one question. Keep only what helps the user continue.');
+    if (wordCount > 100 || sentenceCount > 5 || questionCount > 1 || hasListOrHeading || hasBannedOpener) {
+      rules.push('Use two to five natural sentences and usually 35–90 words, with fewer when fewer feel more human. Use no headings or bullet lists, no banned generic opener, and no more than one optional question. Keep only what helps the user continue.');
     }
     if (usesTenglish && (!replyUsesTenglish || hasTeluguScript)) {
       rules.push('Write the entire reply in natural Telugu-English, reusing at least two Tenglish words or phrases from the user’s message. Do not answer only in English, do not translate into formal English, and do not use Telugu script.');
@@ -344,6 +356,7 @@ function createApp({
 
     try {
       let content = await megProvider.chat({
+        options: generationOptionsForMode(mode),
         messages: [
           { role: 'system', content: MEG_SYSTEM_PROMPT },
           ...injectedSystemMessages,
@@ -361,7 +374,7 @@ function createApp({
         request.megQaTiming?.setRevisionTriggered(1);
         try {
           content = await megProvider.chat({
-            options: { temperature: 0.1, num_predict: 256 },
+            options: { temperature: 0.1, num_predict: 160 },
             messages: [
               { role: 'system', content: MEG_SYSTEM_PROMPT },
               ...injectedSystemMessages,
@@ -523,6 +536,8 @@ module.exports = {
   resolveAllowedOrigins,
   resolveBuildStatus,
   detectMegSafetyFlag,
+  generationOptionsForMode,
+  MODE_GENERATION_OPTIONS,
   MAX_HISTORY_MESSAGES,
   MAX_MESSAGE_LENGTH,
 };
