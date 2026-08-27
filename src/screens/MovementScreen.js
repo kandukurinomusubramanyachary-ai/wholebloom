@@ -97,8 +97,11 @@ function statusMessage(status) {
 export default function MovementScreen({ navigation, route }) {
   const { state, saveMovement, deleteMovement } = useApp();
   const date = selectedDate(route);
-  const movements = Array.isArray(state.movements) ? state.movements : [];
-  const checkin = (state.checkins || []).find((entry) => entry.date === date);
+  const movements = Array.isArray(state.movements)
+    ? state.movements.filter((entry) => entry && typeof entry === 'object')
+    : [];
+  const checkin = (Array.isArray(state.checkins) ? state.checkins : [])
+    .find((entry) => entry?.date === date);
   const previousMovement = useMemo(() => movements
     .filter((entry) => entry.date && entry.date < date)
     .sort((a, b) => `${b.date}${b.updatedAt || ''}`.localeCompare(`${a.date}${a.updatedAt || ''}`))[0], [date, movements]);
@@ -197,7 +200,14 @@ export default function MovementScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <MotionScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps='handled'>
+      <MotionScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps='handled'
+        automaticallyAdjustKeyboardInsets
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        showsVerticalScrollIndicator={Platform.OS === 'web'}
+      >
         <View style={styles.content}>
           {navigation?.canGoBack?.() ? <BackButton onPress={() => navigation.goBack()} /> : null}
           <ScreenHeader
@@ -347,8 +357,32 @@ function ActionButton({ label, icon, danger, onPress }) {
 }
 
 const styles = createThemedStyles({
-  safeArea: { flex: 1, backgroundColor: COLORS.canvas },
-  scroll: { flex: 1 },
+  safeArea: {
+    flex: 1,
+    minHeight: 0,
+    backgroundColor: COLORS.canvas,
+    ...Platform.select({
+      web: {
+        height: '100vh',
+        maxHeight: '100vh',
+        overflow: 'hidden',
+      },
+      default: {},
+    }),
+  },
+  scroll: {
+    flex: 1,
+    minHeight: 0,
+    ...Platform.select({
+      web: {
+        height: '100%',
+        maxHeight: '100%',
+        overflowY: 'auto',
+        overscrollBehavior: 'contain',
+      },
+      default: {},
+    }),
+  },
   scrollContent: { paddingBottom: 48 },
   content: { width: '100%', maxWidth: LAYOUT.maxContentWidth, alignSelf: 'center', paddingHorizontal: LAYOUT.screenPadding, paddingTop: 10 },
   flex: { flex: 1 },
@@ -361,7 +395,7 @@ const styles = createThemedStyles({
   dateBadgeText: { fontSize: 12, fontWeight: '700', color: COLORS.brand },
   notice: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 14, marginBottom: 20, borderRadius: LAYOUT.controlRadius, backgroundColor: COLORS.brandSoft },
   noticeSuccess: { backgroundColor: COLORS.sageLight },
-  noticeError: { backgroundColor: '#FCEDEB' },
+  noticeError: { backgroundColor: COLORS.surfaceWarm },
   noticeText: { flex: 1, fontSize: 14, lineHeight: 20, color: COLORS.body },
   recommendationCard: { padding: 20, marginBottom: 28, borderWidth: 0 },
   eyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 13 },

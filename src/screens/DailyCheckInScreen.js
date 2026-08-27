@@ -271,7 +271,9 @@ export default function DailyCheckInScreen({ route, navigation }) {
   const { user } = useAuth();
   const date = safeDateKey(route?.params?.date);
   const existingCheckin = useMemo(
-    () => normalizeCheckin(state.checkins.find((item) => item.date === date)) || null,
+    () => normalizeCheckin(
+      (Array.isArray(state.checkins) ? state.checkins : []).find((item) => item?.date === date)
+    ) || null,
     [date, state.checkins]
   );
 
@@ -317,7 +319,7 @@ export default function DailyCheckInScreen({ route, navigation }) {
   const targetDate = parseISO(date);
   const dateLabel = format(targetDate, 'EEEE, d MMMM yyyy');
   const cycleDay = useMemo(() => {
-    const latestPeriod = [...(state.periods || [])]
+    const latestPeriod = [...(Array.isArray(state.periods) ? state.periods : [])]
       .filter((period) => {
         if (typeof period?.startDate !== 'string') return false;
         const start = parseISO(period.startDate);
@@ -470,7 +472,7 @@ export default function DailyCheckInScreen({ route, navigation }) {
           keyboardShouldPersistTaps='handled'
           automaticallyAdjustKeyboardInsets
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-          showsVerticalScrollIndicator={false}
+          showsVerticalScrollIndicator={Platform.OS === 'web'}
         >
           <View style={styles.content}>
             {step === 0 ? (
@@ -814,10 +816,26 @@ const styles = createThemedStyles({
     flex: 1,
     minHeight: 0,
     backgroundColor: COLORS.canvas,
+    ...Platform.select({
+      web: {
+        height: '100vh',
+        maxHeight: '100vh',
+        overflow: 'hidden',
+      },
+      default: {},
+    }),
   },
   keyboardView: {
     flex: 1,
     minHeight: 0,
+    ...Platform.select({
+      web: {
+        height: '100%',
+        maxHeight: '100%',
+        overflow: 'hidden',
+      },
+      default: {},
+    }),
   },
   headerOuter: {
     borderBottomWidth: 1,
@@ -883,6 +901,15 @@ const styles = createThemedStyles({
   scroll: {
     flex: 1,
     minHeight: 0,
+    ...Platform.select({
+      web: {
+        height: '100%',
+        maxHeight: '100%',
+        overflowY: 'auto',
+        overscrollBehavior: 'contain',
+      },
+      default: {},
+    }),
   },
   scrollContent: {
     flexGrow: 1,

@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Alert, Platform, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
-import { COLORS, createThemedStyles, LAYOUT } from '../utils/constants';
+import { COLORS, createThemedStyles, LAYOUT, WEB_FOCUS } from '../utils/constants';
 import { exportService } from '../services/export';
 import ScreenHeader from '../components/ScreenHeader';
 import Button from '../components/Button';
+import ScreenScaffold from '../components/ScreenScaffold';
 
 const FORMATS = [
   { id: 'json', label: 'JSON', desc: 'Tracked records and Meg conversations in a machine-readable file', icon: 'code-slash-outline' },
@@ -37,9 +37,10 @@ export default function ExportDataScreen({ navigation }) {
   const exporting = activeExport !== null;
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.content}>
+    <ScreenScaffold
+      contentContainerStyle={styles.scrollContent}
+      innerStyle={styles.content}
+    >
           <BackButton onPress={() => navigation.goBack()} />
           <ScreenHeader title='Export your data' subtitle='Take a copy of what you have recorded in Bloom.' />
 
@@ -110,9 +111,7 @@ export default function ExportDataScreen({ navigation }) {
             <SummaryRow label='Meals' value={state.meals?.length || 0} />
             <SummaryRow label='Movement entries' value={state.movements?.length || 0} last />
           </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+    </ScreenScaffold>
   );
 }
 
@@ -125,10 +124,8 @@ function SummaryRow({ label, value, last = false }) {
 }
 
 const styles = createThemedStyles({
-  safeArea: { flex: 1, backgroundColor: COLORS.canvas },
-  scroll: { flex: 1 },
   scrollContent: { paddingBottom: 40 },
-  content: { width: '100%', maxWidth: LAYOUT.maxContentWidth, alignSelf: 'center', paddingHorizontal: LAYOUT.screenPadding, paddingTop: 12 },
+  content: { maxWidth: LAYOUT.phoneMaxWidth, paddingTop: 12 },
   backButton: { minHeight: 44, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 2, marginLeft: -6, marginBottom: 8, paddingHorizontal: 6 },
   backText: { fontSize: 15, fontWeight: '600', color: COLORS.ink },
   pressed: { opacity: 0.65 },
@@ -147,7 +144,10 @@ const styles = createThemedStyles({
   lastRow: { borderBottomWidth: 0 },
   rowPressed: { backgroundColor: COLORS.surfaceSoft },
   rowHovered: { backgroundColor: COLORS.surfaceWarm },
-  rowFocused: { backgroundColor: COLORS.brandSoft },
+  rowFocused: {
+    backgroundColor: COLORS.brandSoft,
+    ...Platform.select({ web: WEB_FOCUS, default: {} }),
+  },
   disabledRow: { opacity: 0.5 },
   formatIcon: { width: 42, height: 42, borderRadius: 12, backgroundColor: COLORS.brandSoft, alignItems: 'center', justifyContent: 'center' },
   formatCopy: { flex: 1 },
@@ -162,5 +162,9 @@ const styles = createThemedStyles({
   summaryLabel: { flex: 1, fontSize: 14, color: COLORS.body },
   summaryValue: { fontSize: 14, fontWeight: '700', color: COLORS.ink },
   backButtonHovered: { backgroundColor: COLORS.surfaceSoft, borderRadius: 10 },
-  backButtonFocused: { backgroundColor: COLORS.brandSoft, borderRadius: 10 },
+  backButtonFocused: {
+    backgroundColor: COLORS.brandSoft,
+    borderRadius: 10,
+    ...Platform.select({ web: WEB_FOCUS, default: {} }),
+  },
 });

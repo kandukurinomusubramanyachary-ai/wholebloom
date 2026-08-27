@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import {
@@ -12,9 +11,11 @@ import {
   SYMPTOMS,
   TONE_PREFERENCES,
   TRACKING_GOALS,
+  WEB_FOCUS,
 } from '../utils/constants';
 import Button from '../components/Button';
 import ScreenHeader from '../components/ScreenHeader';
+import ScreenScaffold from '../components/ScreenScaffold';
 
 const TRACKING_MODES = [
   {
@@ -197,14 +198,13 @@ export default function PreferencesScreen({ navigation }) {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps='handled'
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.content}>
+    <ScreenScaffold
+      contentContainerStyle={styles.scrollContent}
+      innerStyle={styles.content}
+      keyboardShouldPersistTaps='handled'
+      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+      automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+    >
           <BackButton onPress={() => navigation.goBack()} />
           <ScreenHeader
             title='Personalisation'
@@ -445,9 +445,7 @@ export default function PreferencesScreen({ navigation }) {
           ) : null}
 
           <Button title='Save changes' onPress={handleSave} loading={saving} style={styles.saveButton} />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+    </ScreenScaffold>
   );
 }
 
@@ -472,14 +470,9 @@ function BackButton({ onPress }) {
 }
 
 const styles = createThemedStyles({
-  safeArea: { flex: 1, backgroundColor: COLORS.canvas },
-  scroll: { flex: 1 },
   scrollContent: { paddingBottom: 48 },
   content: {
-    width: '100%',
-    maxWidth: LAYOUT.maxContentWidth,
-    alignSelf: 'center',
-    paddingHorizontal: LAYOUT.screenPadding,
+    maxWidth: LAYOUT.phoneMaxWidth,
     paddingTop: 12,
   },
   backButton: {
@@ -503,7 +496,7 @@ const styles = createThemedStyles({
   iconBox: {
     width: 40,
     height: 40,
-    borderRadius: 18,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.brandSoft,
@@ -542,7 +535,7 @@ const styles = createThemedStyles({
   modeIcon: {
     width: 42,
     height: 42,
-    borderRadius: 21,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.surfaceSoft,
@@ -571,7 +564,10 @@ const styles = createThemedStyles({
   choiceWide: { minWidth: 210, flexBasis: '46%' },
   choiceSelected: { borderColor: COLORS.brand, backgroundColor: COLORS.brandSoft },
   choiceHovered: { borderColor: '#D7B1A5', backgroundColor: COLORS.surfaceWarm },
-  focusedControl: { borderColor: COLORS.brand },
+  focusedControl: {
+    borderColor: COLORS.brand,
+    ...Platform.select({ web: WEB_FOCUS, default: {} }),
+  },
   choiceText: {
     flexShrink: 1,
     fontSize: 13,
@@ -597,7 +593,10 @@ const styles = createThemedStyles({
   toggleRowLast: { borderBottomWidth: 0 },
   togglePressed: { backgroundColor: COLORS.surfaceSoft },
   toggleHovered: { backgroundColor: COLORS.surfaceWarm },
-  toggleFocused: { backgroundColor: COLORS.brandSoft },
+  toggleFocused: {
+    backgroundColor: COLORS.brandSoft,
+    ...Platform.select({ web: WEB_FOCUS, default: {} }),
+  },
   toggleIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.brandSoft },
   toggleCopy: { flex: 1 },
   toggleTitle: { fontSize: 14, lineHeight: 19, fontWeight: '600', color: COLORS.ink },
@@ -611,5 +610,9 @@ const styles = createThemedStyles({
   errorText: { flex: 1, fontSize: 13, lineHeight: 19, color: COLORS.error },
   saveButton: { marginTop: 8 },
   backButtonHovered: { backgroundColor: COLORS.surfaceSoft, borderRadius: 10 },
-  backButtonFocused: { backgroundColor: COLORS.brandSoft, borderRadius: 10 },
+  backButtonFocused: {
+    backgroundColor: COLORS.brandSoft,
+    borderRadius: 10,
+    ...Platform.select({ web: WEB_FOCUS, default: {} }),
+  },
 });

@@ -5,13 +5,26 @@ let visionPromise = null;
 function loadLocalVisionBundle() {
   if (window.Vision) return Promise.resolve(window.Vision);
   if (visionPromise) return visionPromise;
-  visionPromise = new Promise((resolve, reject) => {
+  const pending = new Promise((resolve, reject) => {
     const script = document.createElement('script');
     script.src = '/strength/vision_bundle.js';
     script.async = true;
-    script.onload = () => window.Vision ? resolve(window.Vision) : reject(new Error('pose_runtime_missing'));
-    script.onerror = () => reject(new Error('pose_runtime_failed'));
+    script.onload = () => {
+      if (window.Vision) resolve(window.Vision);
+      else {
+        script.remove();
+        reject(new Error('pose_runtime_missing'));
+      }
+    };
+    script.onerror = () => {
+      script.remove();
+      reject(new Error('pose_runtime_failed'));
+    };
     document.head.appendChild(script);
+  });
+  visionPromise = pending.catch((error) => {
+    visionPromise = null;
+    throw error;
   });
   return visionPromise;
 }

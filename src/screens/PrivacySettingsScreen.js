@@ -1,21 +1,20 @@
 import React, { useState } from 'react';
 import {
   Alert,
+  Platform,
   Pressable,
-  ScrollView,
-  StyleSheet,
   Switch,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useApp } from '../context/AppContext';
-import { COLORS, createThemedStyles, LAYOUT } from '../utils/constants';
+import { COLORS, createThemedStyles, LAYOUT, WEB_FOCUS } from '../utils/constants';
 import Button from '../components/Button';
 import ScreenHeader from '../components/ScreenHeader';
+import ScreenScaffold from '../components/ScreenScaffold';
 
 export default function PrivacySettingsScreen({ navigation }) {
   const { state, savePrivacy, saveSettings, clearMegHistory } = useApp();
@@ -103,9 +102,13 @@ export default function PrivacySettingsScreen({ navigation }) {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps='handled'>
-        <View style={styles.content}>
+    <ScreenScaffold
+      contentContainerStyle={styles.scrollContent}
+      innerStyle={styles.content}
+      keyboardShouldPersistTaps='handled'
+      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+      automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+    >
           <BackButton onPress={() => navigation.goBack()} />
           <ScreenHeader title='Privacy & security' subtitle='Choose how Bloom protects what you record on this device.' />
 
@@ -287,9 +290,7 @@ export default function PrivacySettingsScreen({ navigation }) {
             <Ionicons name='phone-portrait-outline' size={18} color={COLORS.sage} />
             <Text style={styles.localNoteText}>Bloom keeps cycle dates and check-ins in your private account. Device preferences remain local. Export or delete your records whenever you choose.</Text>
           </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+    </ScreenScaffold>
   );
 }
 
@@ -303,10 +304,8 @@ function BackButton({ onPress }) {
 }
 
 const styles = createThemedStyles({
-  safeArea: { flex: 1, backgroundColor: COLORS.canvas },
-  scroll: { flex: 1 },
   scrollContent: { paddingBottom: 40 },
-  content: { width: '100%', maxWidth: LAYOUT.maxContentWidth, alignSelf: 'center', paddingHorizontal: LAYOUT.screenPadding, paddingTop: 12 },
+  content: { maxWidth: LAYOUT.phoneMaxWidth, paddingTop: 12 },
   backButton: { minHeight: 44, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 2, marginLeft: -6, marginBottom: 8, paddingHorizontal: 6 },
   backText: { fontSize: 15, fontWeight: '600', color: COLORS.ink },
   pressed: { opacity: 0.65 },
@@ -325,13 +324,17 @@ const styles = createThemedStyles({
   textButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 },
   textButtonLabel: { fontSize: 14, fontWeight: '700', color: COLORS.brand },
   textButtonHovered: { backgroundColor: COLORS.surfaceWarm, borderRadius: 9 },
-  textButtonFocused: { backgroundColor: COLORS.brandSoft, borderRadius: 9 },
+  textButtonFocused: {
+    backgroundColor: COLORS.brandSoft,
+    borderRadius: 9,
+    ...Platform.select({ web: WEB_FOCUS, default: {} }),
+  },
   pinSetup: { marginTop: 18, padding: 16, borderRadius: LAYOUT.controlRadius, backgroundColor: COLORS.surfaceSoft, gap: 10 },
   inputLabel: { fontSize: 14, fontWeight: '600', color: COLORS.ink },
   pinInput: { minHeight: 54, borderWidth: 1, borderColor: COLORS.hairline, borderRadius: LAYOUT.controlRadius, backgroundColor: COLORS.canvas, paddingHorizontal: 16, color: COLORS.ink, fontSize: 20, letterSpacing: 8, textAlign: 'center' },
   supportingText: { fontSize: 12, lineHeight: 18, color: COLORS.muted, marginBottom: 2 },
   settingRow: { flexDirection: 'row', alignItems: 'center', gap: 20 },
-  settingIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.brandSoft },
+  settingIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.brandSoft },
   settingCopy: { flex: 1 },
   memoryFooter: { minHeight: 50, marginTop: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: COLORS.hairline, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   memoryCount: { flex: 1, fontSize: 12, lineHeight: 17, color: COLORS.muted },
@@ -339,18 +342,30 @@ const styles = createThemedStyles({
   clearChatError: { marginTop: 10, fontSize: 12, lineHeight: 17, color: COLORS.error },
   clearChatButton: { minHeight: 44, justifyContent: 'center' },
   clearChatHovered: { backgroundColor: '#FFF7F6', borderRadius: 9, paddingHorizontal: 6 },
-  clearChatFocused: { backgroundColor: COLORS.brandSoft, borderRadius: 9, paddingHorizontal: 6 },
+  clearChatFocused: {
+    backgroundColor: COLORS.brandSoft,
+    borderRadius: 9,
+    paddingHorizontal: 6,
+    ...Platform.select({ web: WEB_FOCUS, default: {} }),
+  },
   clearChatText: { fontSize: 13, fontWeight: '700', color: COLORS.error },
   disabledText: { color: COLORS.muted },
   timeoutOptions: { flexDirection: 'row', gap: 8, marginTop: 18 },
   timeoutOption: { minWidth: 72, minHeight: 44, paddingHorizontal: 14, borderRadius: LAYOUT.controlRadius, borderWidth: 1, borderColor: COLORS.hairline, backgroundColor: COLORS.canvas, alignItems: 'center', justifyContent: 'center' },
   timeoutSelected: { borderColor: COLORS.brand, backgroundColor: COLORS.brandSoft },
   timeoutHovered: { borderColor: '#D7B1A5', backgroundColor: COLORS.surfaceWarm },
-  focusedControl: { borderColor: COLORS.brand },
+  focusedControl: {
+    borderColor: COLORS.brand,
+    ...Platform.select({ web: WEB_FOCUS, default: {} }),
+  },
   timeoutText: { fontSize: 14, fontWeight: '600', color: COLORS.body },
   timeoutTextSelected: { color: COLORS.brand },
   localNote: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingHorizontal: 4, paddingVertical: 12 },
   localNoteText: { flex: 1, fontSize: 13, lineHeight: 19, color: COLORS.muted },
   backButtonHovered: { backgroundColor: COLORS.surfaceSoft, borderRadius: 10 },
-  backButtonFocused: { backgroundColor: COLORS.brandSoft, borderRadius: 10 },
+  backButtonFocused: {
+    backgroundColor: COLORS.brandSoft,
+    borderRadius: 10,
+    ...Platform.select({ web: WEB_FOCUS, default: {} }),
+  },
 });

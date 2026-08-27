@@ -20,10 +20,17 @@ export default function CameraStage({ active, inferenceActive, showSkeleton = tr
   useEffect(() => {
     if (!active) return undefined;
     let cancelled = false;
+    let fatalErrorReported = false;
     let animationFrame = null;
     let lastSampleAt = -Infinity;
     const smoother = createLandmarkSmoother();
     setLoading(true);
+
+    const reportFatalError = (error) => {
+      if (cancelled || fatalErrorReported) return;
+      fatalErrorReported = true;
+      callbackRef.current.onError?.(error);
+    };
 
     async function start() {
       try {
@@ -40,7 +47,7 @@ export default function CameraStage({ active, inferenceActive, showSkeleton = tr
         callbackRef.current.onReady?.();
 
         const sample = (now) => {
-          if (cancelled) return;
+          if (cancelled || fatalErrorReported) return;
           animationFrame = window.requestAnimationFrame(sample);
           const interval = 1000 / STRENGTH_DEFAULTS.sampleRate;
           if (now - lastSampleAt < interval) return;
@@ -68,7 +75,7 @@ export default function CameraStage({ active, inferenceActive, showSkeleton = tr
                 sourceHeight: result.sourceHeight,
               });
             } catch (error) {
-              callbackRef.current.onError?.(error);
+              reportFatalError(error);
             }
           } else overlayRef.current?.clear();
         };
@@ -76,8 +83,9 @@ export default function CameraStage({ active, inferenceActive, showSkeleton = tr
       } catch (error) {
         streamRef.current?.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
+        if (cancelled) return;
         setLoading(false);
-        callbackRef.current.onError?.(error);
+        reportFatalError(error);
       }
     }
     start();

@@ -45,6 +45,7 @@ export default function useStrengthSession({ uid, navigation }) {
   const runtime = useRef({ engine: null, scheduler: null, positioning: null, calibrationCompleted: false, baseline: null, startedAt: null, pausedAt: null, pauseCount: 0, repDurations: [], cueCounts: {}, ended: false });
   const pendingSummary = useRef(null);
   const summarySaveLock = useRef(false);
+  const cameraLaunchLock = useRef(false);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
   const voice = useRef(createVoiceCoach({ rate: STRENGTH_DEFAULTS.speechRate, pitch: STRENGTH_DEFAULTS.speechPitch }));
@@ -66,6 +67,7 @@ export default function useStrengthSession({ uid, navigation }) {
 
   const resetRuntime = useCallback(() => {
     runtime.current = { engine: null, scheduler: null, positioning: null, calibrationCompleted: false, baseline: null, startedAt: null, pausedAt: null, pauseCount: 0, repDurations: [], cueCounts: {}, ended: false };
+    cameraLaunchLock.current = false;
     setCameraFailure(null);
     voice.current.cancel(); setReps(0); setCueText(''); setPauseReason(null); setCalibrationGood(false); setInstruction('Looking for you…');
   }, []);
@@ -171,9 +173,20 @@ export default function useStrengthSession({ uid, navigation }) {
     }
   }, [exercise, finish, pauseReason, phase]);
 
-  const beginCamera = useCallback(() => { resetRuntime(); setCameraFailure(null); setPhase('loading'); trackStrengthEvent('strength_camera_requested', { exerciseId: exercise.id, platform: Platform.OS }); }, [exercise.id, resetRuntime]);
-  const cameraReady = useCallback(() => { setPhase('calibrating'); trackStrengthEvent('strength_camera_result', { exerciseId: exercise.id, result: 'granted', platform: Platform.OS }); }, [exercise.id]);
+  const beginCamera = useCallback(() => {
+    if (cameraLaunchLock.current) return;
+    resetRuntime();
+    cameraLaunchLock.current = true;
+    setPhase('loading');
+    trackStrengthEvent('strength_camera_requested', { exerciseId: exercise.id, platform: Platform.OS });
+  }, [exercise.id, resetRuntime]);
+  const cameraReady = useCallback(() => {
+    cameraLaunchLock.current = false;
+    setPhase('calibrating');
+    trackStrengthEvent('strength_camera_result', { exerciseId: exercise.id, result: 'granted', platform: Platform.OS });
+  }, [exercise.id]);
   const cameraError = useCallback((error) => {
+    cameraLaunchLock.current = false;
     const denied = ['NotAllowedError', 'SecurityError'].includes(error?.name);
     const busy = error?.name === 'NotReadableError';
     const message = denied ? STRENGTH_COPY.permissionDenied : busy ? STRENGTH_COPY.cameraBusy : STRENGTH_COPY.modelFailed;
@@ -182,6 +195,10 @@ export default function useStrengthSession({ uid, navigation }) {
     setPhase('permission');
     trackStrengthEvent('strength_camera_result', { exerciseId: exercise.id, result: denied ? 'denied' : 'failed', platform: Platform.OS });
   }, [exercise.id]);
+  const leaveCamera = useCallback((nextPhase = 'permission') => {
+    resetRuntime();
+    setPhase(nextPhase);
+  }, [resetRuntime]);
   const startCountdown = useCallback(() => { setCountdown(3); setPhase('countdown'); voice.current.speak(STRENGTH_COPY.readyThree); }, []);
 
   useEffect(() => {
@@ -220,7 +237,7 @@ export default function useStrengthSession({ uid, navigation }) {
     phase, setPhase, exercise, exerciseId, setExerciseId, instruction, calibrationGood,
     countdown, reps, pauseReason, muted, setMuted, showSkeleton, setShowSkeleton, cueText,
     summaryResult, summaryError, savingSummary, cameraFailure,
-    beginCamera, cameraReady, cameraError, onFrame, startCountdown, togglePause,
+    beginCamera, cameraReady, cameraError, leaveCamera, onFrame, startCountdown, togglePause,
     stop: () => void finish('stopped'),
     retrySummary: () => void persistPendingSummary(pendingSummary.current),
     discardPendingSummary: () => { pendingSummary.current = null; setSummaryError(null); resetRuntime(); setPhase('select'); },

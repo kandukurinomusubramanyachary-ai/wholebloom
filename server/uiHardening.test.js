@@ -134,6 +134,17 @@ test('custom bottom navigation clears the mobile keyboard and protects narrow la
   assert.match(tabs, /maxFontSizeMultiplier=\{1\.35\}/);
 });
 
+test('Strength camera startup exits reset the launch lock before another attempt', () => {
+  const session = read('src/features/strength/useStrengthSession.web.js');
+  const screen = read('src/features/strength/StrengthScreen.web.js');
+
+  assert.match(session, /const leaveCamera = useCallback\(\(nextPhase = 'permission'\) => \{\s*resetRuntime\(\);\s*setPhase\(nextPhase\);/);
+  assert.match(session, /beginCamera, cameraReady, cameraError, leaveCamera,/);
+  assert.match(screen, /onBack=\{\(\) => session\.leaveCamera\('permission'\)\}/);
+  assert.match(screen, /onPress=\{\(\) => session\.leaveCamera\('fallback'\)\}/);
+  assert.match(screen, /onFallback=\{\(\) => session\.leaveCamera\('fallback'\)\}/);
+});
+
 test('Diet v3.1 is a bounded, scrollable single tab with sheet-owned depth', () => {
   const diet = read('src/screens/DietScreen.js');
 

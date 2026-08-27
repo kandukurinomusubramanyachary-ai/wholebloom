@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Platform, View, Text, TextInput, Pressable, StyleSheet, ScrollView } from 'react-native';
+import { Platform, View, Text, TextInput, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
-import { COLORS, createThemedStyles, ELEVATION, LAYOUT } from '../utils/constants';
+import { COLORS, createThemedStyles, ELEVATION, LAYOUT, WEB_FOCUS } from '../utils/constants';
 import ScreenHeader from '../components/ScreenHeader';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -378,7 +378,7 @@ const styles = createThemedStyles({
   scrollContent: { paddingBottom: 40 },
   inner: {
     width: '100%',
-    maxWidth: LAYOUT.maxContentWidth,
+    maxWidth: LAYOUT.phoneMaxWidth,
     alignSelf: 'center',
     paddingHorizontal: LAYOUT.screenPadding,
     paddingTop: 24,
@@ -482,7 +482,7 @@ const styles = createThemedStyles({
   noteIcon: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.white,
@@ -530,7 +530,7 @@ const styles = createThemedStyles({
     width: 40,
     height: 40,
     marginRight: 12,
-    borderRadius: 20,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.surfaceSoft,
@@ -571,7 +571,10 @@ const styles = createThemedStyles({
     gap: 9,
     borderRadius: LAYOUT.controlRadius,
   },
-  focusedControl: { borderColor: COLORS.brand },
+  focusedControl: {
+    borderColor: COLORS.brand,
+    ...Platform.select({ web: WEB_FOCUS, default: {} }),
+  },
   deleteTriggerText: {
     fontSize: 15,
     lineHeight: 20,
@@ -608,10 +611,9 @@ const styles = createThemedStyles({
   },
   confirmActions: {
     marginTop: 18,
-    flexDirection: 'row',
     gap: 10,
   },
-  confirmButton: { flex: 1, paddingHorizontal: 12 },
+  confirmButton: { paddingHorizontal: 12 },
   version: {
     marginTop: 28,
     fontSize: 12,
