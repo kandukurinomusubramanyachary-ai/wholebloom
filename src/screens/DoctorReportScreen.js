@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { format, parseISO, subDays } from 'date-fns';
+import { format, isValid, parseISO, subDays } from 'date-fns';
 import { useApp } from '../context/AppContext';
 import { COLORS, createThemedStyles, ELEVATION, LAYOUT } from '../utils/constants';
 import {
@@ -73,7 +73,8 @@ function getRangeDates(range) {
 
 function readableDate(value) {
   if (!value || value === 'All records') return 'All records';
-  return format(parseISO(value), 'd MMM yyyy');
+  const parsed = parseISO(String(value));
+  return isValid(parsed) ? format(parsed, 'd MMM yyyy') : 'Date unavailable';
 }
 
 function readableName(value) {
@@ -146,7 +147,10 @@ function EmptyPreview({ children }) {
 
 export default function DoctorReportScreen({ navigation }) {
   const { state, saveDoctorReportSettings } = useApp();
-  const savedSettings = state.doctorReportSettings || state.settings?.doctorReport || {};
+  const storedSettings = state.doctorReportSettings || state.settings?.doctorReport;
+  const savedSettings = storedSettings && typeof storedSettings === 'object' && !Array.isArray(storedSettings)
+    ? storedSettings
+    : {};
   const initialSettings = {
     ...DEFAULT_DOCTOR_REPORT_SETTINGS,
     ...savedSettings,
@@ -154,6 +158,7 @@ export default function DoctorReportScreen({ navigation }) {
       ? savedSettings.range
       : DEFAULT_DOCTOR_REPORT_SETTINGS.range,
     includeMeg: false,
+    questions: typeof savedSettings.questions === 'string' ? savedSettings.questions : '',
   };
 
   const [settings, setSettings] = useState(initialSettings);
@@ -229,12 +234,29 @@ export default function DoctorReportScreen({ navigation }) {
   const medications = report.medications || [];
   const questions = report.questions || [];
 
+  if (state.isLoading) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <View
+          style={styles.loadingState}
+          accessibilityRole='progressbar'
+          accessibilityLabel='Preparing doctor summary'
+        >
+          <Ionicons name='document-text-outline' size={28} color={COLORS.brand} />
+          <Text style={styles.loadingText}>Preparing your doctor summary…</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <MotionScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps='handled'
+        automaticallyAdjustKeyboardInsets
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         showsVerticalScrollIndicator={Platform.OS === 'web'}
       >
         <View style={styles.content}>
@@ -637,6 +659,7 @@ const styles = createThemedStyles({
         height: '100%',
         maxHeight: '100%',
         overflowY: 'auto',
+        overscrollBehavior: 'contain',
       },
       default: {},
     }),
@@ -652,6 +675,19 @@ const styles = createThemedStyles({
   },
   flex: {
     flex: 1,
+  },
+  loadingState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingHorizontal: LAYOUT.screenPadding,
+  },
+  loadingText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: COLORS.muted,
+    textAlign: 'center',
   },
   backButton: {
     minHeight: 48,

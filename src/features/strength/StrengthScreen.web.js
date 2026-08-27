@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useLayoutEffect } from 'react';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
@@ -15,13 +15,14 @@ import useStrengthSession from './useStrengthSession.web';
 import { trackStrengthEvent } from './services/strengthAnalytics';
 
 const IMMERSIVE_PHASES = new Set(['countdown', 'active', 'paused']);
+const CAMERA_FOCUSED_PHASES = new Set(['permission', 'loading', 'calibrating', 'ready', 'countdown', 'active', 'paused']);
 const READY_NAMES = {
   'bodyweight-squat-v1': 'squats',
   'wall-pushup-v1': 'wall push-ups',
   'side-leg-raise-v1': 'side-leg raises',
 };
 
-function Header({ onBack, onInfo }) {
+function Header({ onBack, onInfo, onProfile }) {
   return (
     <View style={styles.header}>
       <View style={styles.headerSide}>
@@ -36,6 +37,10 @@ function Header({ onBack, onInfo }) {
         {onInfo ? (
           <Pressable onPress={onInfo} accessibilityRole='button' accessibilityLabel='How camera guidance works' style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}>
             <Ionicons name='information-circle-outline' size={22} color={COLORS.brand} />
+          </Pressable>
+        ) : onProfile ? (
+          <Pressable onPress={onProfile} accessibilityRole='button' accessibilityLabel='Open your profile' style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}>
+            <Ionicons name='person-circle-outline' size={23} color={COLORS.brand} />
           </Pressable>
         ) : null}
       </View>
@@ -71,9 +76,9 @@ function ExerciseList({ onSelect }) {
   );
 }
 
-function PhoneGuide() {
+function PhoneGuide({ compact = false }) {
   return (
-    <View style={styles.phoneGuide} accessibilityLabel='Prop your phone upright with your full body in frame'>
+    <View style={[styles.phoneGuide, compact && styles.phoneGuideCompact]} accessibilityLabel='Prop your phone upright with your full body in frame'>
       <View style={styles.guideArt}>
         <View style={styles.phoneStand}><Ionicons name='phone-portrait-outline' size={46} color={COLORS.ink} /></View>
         <View style={styles.guideDistance} />
@@ -81,6 +86,41 @@ function PhoneGuide() {
       </View>
       <Text style={styles.phoneGuideText}>Prop phone upright, full body in frame</Text>
     </View>
+  );
+}
+
+function ReadyState({ copy, exerciseId, onBack, onStart, onFallback }) {
+  return (
+    <SafeAreaView style={styles.readySafe} edges={['top', 'bottom']}>
+      <View style={styles.readyBackdrop} pointerEvents='none' accessibilityElementsHidden>
+        <View style={styles.readyBackdropTitle} />
+        <View style={styles.readyBackdropCard} />
+        <View style={styles.readyBackdropRow}><View style={styles.readyBackdropTile} /><View style={styles.readyBackdropTile} /></View>
+      </View>
+      <ScrollView
+        style={styles.readyOverlayScroll}
+        contentContainerStyle={styles.readyOverlayContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps='handled'
+      >
+        <View style={styles.readySheet}>
+          <View style={styles.sheetHandle} />
+          <Pressable onPress={onBack} accessibilityRole='button' accessibilityLabel='Back to safety guidance' style={({ pressed }) => [styles.sheetBack, pressed && styles.pressed]}>
+            <Ionicons name='chevron-back' size={20} color={COLORS.ink} />
+          </Pressable>
+          <Text style={styles.readySheetTitle}>Ready for {READY_NAMES[exerciseId] || 'your set'}?</Text>
+          <View style={styles.readyMeta}>
+            <View style={styles.readyMetaItem}><Ionicons name='repeat-outline' size={16} color={COLORS.muted} /><Text style={styles.readyMetaText}>{STRENGTH_DEFAULTS.targetReps} reps</Text></View>
+            <View style={styles.readyDot} />
+            <View style={styles.readyMetaItem}><Ionicons name='videocam-outline' size={16} color={COLORS.muted} /><Text style={styles.readyMetaText}>{copy.view}</Text></View>
+          </View>
+          <PhoneGuide compact />
+          <Button title='Start with camera' icon='videocam-outline' onPress={onStart} style={[styles.primaryButton, styles.pillButton, styles.readyPrimaryButton]} />
+          <Button title='Use camera-free mode' variant='secondary' onPress={onFallback} style={[styles.secondaryButton, styles.pillButton]} />
+          <TrustRow />
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -95,7 +135,7 @@ function TrustRow() {
 
 function DarkAction({ icon, label, onPress, secondary = false }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole='button' style={({ pressed, focused }) => [darkStyles.action, secondary && darkStyles.actionSecondary, focused && darkStyles.focused, pressed && darkStyles.pressed]}>
+    <Pressable onPress={onPress} accessibilityRole='button' accessibilityLabel={label} style={({ pressed, focused }) => [darkStyles.action, secondary && darkStyles.actionSecondary, focused && darkStyles.focused, pressed && darkStyles.pressed]}>
       {icon ? <Ionicons name={icon} size={19} color='#FFFFFF' /> : null}
       <Text style={darkStyles.actionText}>{label}</Text>
     </Pressable>
@@ -160,14 +200,23 @@ function ImmersiveSession({ session, copy }) {
 export default function StrengthScreen({ navigation }) {
   const { user } = useAuth();
   const session = useStrengthSession({ uid: user?.uid, navigation });
-  const copy = EXERCISE_COPY[session.exerciseId];
+  const copy = EXERCISE_COPY[session.exerciseId] || EXERCISE_COPY['bodyweight-squat-v1'];
   const immersive = IMMERSIVE_PHASES.has(session.phase);
+  const cameraFailureVisible = session.phase === 'permission' && Boolean(session.cameraFailure);
+  const tabBarSuppressed = CAMERA_FOCUSED_PHASES.has(session.phase);
 
   useEffect(() => { trackStrengthEvent('strength_opened', { platform: 'web' }); }, []);
+  useLayoutEffect(() => {
+    navigation.setOptions({ tabBarStyle: tabBarSuppressed ? { display: 'none' } : undefined });
+  }, [navigation, tabBarSuppressed]);
   useEffect(() => {
-    navigation.setOptions({ tabBarStyle: immersive ? { display: 'none' } : undefined });
-    return () => navigation.setOptions({ tabBarStyle: undefined });
-  }, [immersive, navigation]);
+    const restoreTabBar = () => navigation.setOptions({ tabBarStyle: undefined });
+    const unsubscribe = navigation.addListener('blur', restoreTabBar);
+    return () => {
+      unsubscribe();
+      restoreTabBar();
+    };
+  }, [navigation]);
 
   const chooseExercise = (id) => {
     session.setExerciseId(id);
@@ -176,29 +225,28 @@ export default function StrengthScreen({ navigation }) {
   };
 
   if (immersive) return <ImmersiveSession session={session} copy={copy} />;
-  if (session.phase === 'permission' && session.cameraFailure) return <CameraFailureState failure={session.cameraFailure} onClose={() => session.setPhase('select')} onRetry={session.beginCamera} onFallback={() => session.setPhase('fallback')} />;
+  if (cameraFailureVisible) return <CameraFailureState failure={session.cameraFailure} onClose={() => session.leaveCamera('select')} onRetry={session.beginCamera} onFallback={() => session.leaveCamera('fallback')} />;
+  if (session.phase === 'permission') return <ReadyState copy={copy} exerciseId={session.exerciseId} onBack={() => session.leaveCamera('safety')} onStart={session.beginCamera} onFallback={() => session.leaveCamera('fallback')} />;
 
   let content;
   if (session.phase === 'select') {
-    content = <View><Header onInfo={() => session.setPhase('learn')} /><View style={styles.hero}><Text style={styles.title}>Move at home</Text><Text style={styles.heroLead}>Camera-guided bodyweight exercises, no equipment needed.</Text></View><ExerciseList onSelect={chooseExercise} /><Pressable onPress={() => session.setPhase('learn')} accessibilityRole='button' style={({ pressed }) => [styles.learnLink, pressed && styles.pressed]}><Text style={styles.learnLinkText}>How camera guidance works</Text></Pressable></View>;
+    content = <View><Header onProfile={() => navigation.navigate('Profile')} /><View style={styles.hero}><Text style={styles.title}>Move at home</Text><Text style={styles.heroLead}>Camera-guided bodyweight exercises, no equipment needed.</Text></View><ExerciseList onSelect={chooseExercise} /><Pressable onPress={() => session.setPhase('learn')} accessibilityRole='button' accessibilityLabel='How camera guidance works' style={({ pressed }) => [styles.learnLink, pressed && styles.pressed]}><Text style={styles.learnLinkText}>How camera guidance works</Text></Pressable></View>;
   } else if (session.phase === 'learn') {
     content = <View><Header onBack={() => session.setPhase('select')} /><Text style={styles.title}>Private movement guidance</Text><Text style={styles.lead}>{STRENGTH_COPY.explanation}</Text><View style={styles.explainer}><View style={styles.explainerRow}><Ionicons name='scan-outline' size={22} color={COLORS.brand} /><View style={styles.flex}><Text style={styles.rowTitle}>Counts visible repetitions</Text><Text style={styles.rowBody}>The pose model checks joint positions on this device, one moment at a time.</Text></View></View><View style={styles.divider} /><View style={styles.explainerRow}><Ionicons name='trash-outline' size={22} color={COLORS.sage} /><View style={styles.flex}><Text style={styles.rowTitle}>Discards every camera frame</Text><Text style={styles.rowBody}>Only a small session summary can be saved to your Bloom account.</Text></View></View></View><Button title='Choose an exercise' onPress={() => session.setPhase('select')} style={styles.primaryButton} /></View>;
   } else if (session.phase === 'safety') {
     content = <View><Header onBack={() => session.setPhase('select')} /><View style={styles.safetyIcon}><Ionicons name='heart-outline' size={28} color={COLORS.brand} /></View><Text style={styles.title}>Before you begin</Text><Text style={styles.lead}>{STRENGTH_COPY.safety}</Text><View style={styles.steps}>{copy.steps.map((step) => <View key={step} style={styles.step}><Ionicons name='checkmark-circle-outline' size={20} color={COLORS.sage} /><Text style={styles.stepText}>{step}</Text></View>)}</View><Button title='I understand — continue' onPress={() => session.setPhase('permission')} style={styles.primaryButton} /><Button title='Use camera-free guidance' variant='secondary' onPress={() => session.setPhase('fallback')} style={styles.secondaryButton} /></View>;
-  } else if (session.phase === 'permission') {
-    content = <View><Header onBack={() => session.setPhase('safety')} /><View style={styles.readyHeader}><Text style={styles.title}>Ready for {READY_NAMES[session.exerciseId] || 'your set'}?</Text><View style={styles.readyMeta}><View style={styles.readyMetaItem}><Ionicons name='repeat-outline' size={17} color={COLORS.muted} /><Text style={styles.readyMetaText}>{STRENGTH_DEFAULTS.targetReps} reps</Text></View><View style={styles.readyDot} /><View style={styles.readyMetaItem}><Ionicons name='videocam-outline' size={17} color={COLORS.muted} /><Text style={styles.readyMetaText}>{copy.view}</Text></View></View></View><PhoneGuide /><Button title='Start with camera' icon='videocam-outline' onPress={session.beginCamera} style={[styles.primaryButton, styles.pillButton]} /><Button title='Use camera-free mode' variant='secondary' onPress={() => session.setPhase('fallback')} style={[styles.secondaryButton, styles.pillButton]} /><TrustRow /></View>;
   } else if (session.phase === 'fallback') {
     content = <View><Header onBack={() => session.setPhase('permission')} /><StrengthUnsupportedScreen embedded initialExerciseId={session.exerciseId} onBack={() => session.setPhase('select')} /></View>;
   } else if (session.phase === 'summary' && session.summaryResult) {
-    content = <View><Header /><StrengthSummary summary={session.summaryResult.summary} observation={session.summaryResult.observation} focus={session.summaryResult.focus} synced={session.summaryResult.synced} onDone={() => navigation.navigate('Today')} onAgain={session.reset} /></View>;
+    content = <View><Header onProfile={() => navigation.navigate('Profile')} /><StrengthSummary summary={session.summaryResult.summary} observation={session.summaryResult.observation} focus={session.summaryResult.focus} synced={session.summaryResult.synced} onDone={() => navigation.navigate('Today')} onAgain={session.reset} /></View>;
   } else if (session.phase === 'save_error') {
-    content = <View><Header /><View style={styles.stateCenter}><View style={styles.errorIcon}><Ionicons name='cloud-offline-outline' size={34} color={COLORS.error} /></View><Text style={styles.stateTitle}>Your set is still here</Text><Text style={styles.stateBody}>{session.summaryError}</Text><Button title='Try saving again' icon='refresh-outline' loading={session.savingSummary} onPress={session.retrySummary} style={styles.stateButton} /><Button title='Return to Strength' variant='secondary' disabled={session.savingSummary} onPress={session.discardPendingSummary} style={styles.secondaryButton} /></View></View>;
+    content = <View><Header /><View style={styles.stateCenter} accessibilityLiveRegion='assertive'><View style={styles.errorIcon}><Ionicons name='cloud-offline-outline' size={34} color={COLORS.error} /></View><Text style={styles.stateTitle}>Your set is still here</Text><Text style={styles.stateBody}>{session.summaryError}</Text><Button title='Try saving again' icon='refresh-outline' loading={session.savingSummary} loadingLabel='Trying again…' onPress={session.retrySummary} style={styles.stateButton} /><Button title='Return to Strength' variant='secondary' disabled={session.savingSummary} onPress={session.discardPendingSummary} style={styles.secondaryButton} /></View></View>;
   } else if (session.phase === 'saving') {
     content = <View><Header /><View style={styles.stateCenter} accessibilityLiveRegion='polite'><ActivityIndicator color={COLORS.brand} size='large' /><Text style={styles.stateTitle}>Saving your set</Text><Text style={styles.stateBody}>Keeping the summary on this device first.</Text></View></View>;
   } else {
     const ready = session.phase === 'ready';
     const loading = session.phase === 'loading';
-    content = <View><Header onBack={() => session.setPhase('permission')} /><View style={styles.cameraPreview}><CameraStage active={session.cameraActive} inferenceActive={session.inferenceActive} showSkeleton={session.showSkeleton} showIndicator onFrame={session.onFrame} onReady={session.cameraReady} onError={session.cameraError} /></View><View style={styles.preflightPanel}><Text style={styles.preflightEyebrow}>{copy.name}</Text><Text style={styles.preflightTitle}>{loading ? 'Preparing private guidance' : ready ? 'You’re ready' : 'Finding your starting position'}</Text><Text style={styles.preflightBody}>{ready ? copy.intro : 'Place your phone securely and keep your full body visible.'}</Text>{!loading ? <FramingGuide instruction={ready ? STRENGTH_COPY.fullBody : session.instruction} good={ready || session.calibrationGood} /> : <View style={styles.loadingRow}><ActivityIndicator color={COLORS.brand} /><Text style={styles.loadingText}>Starting the on-device pose model…</Text></View>}{ready ? <Button title='Start set' onPress={session.startCountdown} style={[styles.primaryButton, styles.pillButton]} /> : null}<Button title='Use camera-free mode' variant='ghost' onPress={() => session.setPhase('fallback')} style={styles.secondaryButton} /></View></View>;
+    content = <View><Header onBack={() => session.leaveCamera('permission')} /><View style={styles.cameraPreview}><CameraStage active={session.cameraActive} inferenceActive={session.inferenceActive} showSkeleton={session.showSkeleton} showIndicator onFrame={session.onFrame} onReady={session.cameraReady} onError={session.cameraError} /></View><View style={styles.preflightPanel}><Text style={styles.preflightEyebrow}>{copy.name}</Text><Text style={styles.preflightTitle}>{loading ? 'Preparing private guidance' : ready ? 'You’re ready' : 'Finding your starting position'}</Text><Text style={styles.preflightBody}>{ready ? copy.intro : 'Place your phone securely and keep your full body visible.'}</Text>{!loading ? <FramingGuide instruction={ready ? STRENGTH_COPY.fullBody : session.instruction} good={ready || session.calibrationGood} /> : <View style={styles.loadingRow}><ActivityIndicator color={COLORS.brand} /><Text style={styles.loadingText}>Starting the on-device pose model…</Text></View>}{ready ? <Button title='Start set' onPress={session.startCountdown} style={[styles.primaryButton, styles.pillButton]} /> : null}<Button title='Use camera-free mode' variant='ghost' onPress={() => session.leaveCamera('fallback')} style={styles.secondaryButton} /></View></View>;
   }
 
   return <SafeAreaView style={styles.safeArea} edges={['top']}><ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps='handled' showsVerticalScrollIndicator>{content}</ScrollView></SafeAreaView>;
@@ -206,7 +254,14 @@ export default function StrengthScreen({ navigation }) {
 
 const styles = createThemedStyles({
   safeArea: { flex: 1, minHeight: 0, backgroundColor: COLORS.canvas },
-  scroll: { flex: 1, minHeight: 0 },
+  scroll: {
+    flex: 1,
+    minHeight: 0,
+    ...Platform.select({
+      web: { height: '100%', maxHeight: '100vh', overflowY: 'auto', overscrollBehavior: 'contain' },
+      default: {},
+    }),
+  },
   content: { width: '100%', maxWidth: 560, alignSelf: 'center', paddingHorizontal: LAYOUT.screenPadding, paddingBottom: 38 },
   flex: { flex: 1 },
   header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: COLORS.hairlineSoft },
@@ -240,11 +295,24 @@ const styles = createThemedStyles({
   step: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   stepText: { flex: 1, color: COLORS.body, fontSize: 14, lineHeight: 20 },
   readyHeader: { alignItems: 'center', paddingTop: 24 },
+  readySafe: { flex: 1, minHeight: 0, backgroundColor: COLORS.surfaceSoft },
+  readyBackdrop: { ...StyleSheet.absoluteFillObject, gap: 16, padding: 28, opacity: 0.48, backgroundColor: COLORS.surfaceStrong },
+  readyBackdropTitle: { width: '38%', height: 30, borderRadius: 10, backgroundColor: COLORS.hairline },
+  readyBackdropCard: { width: '100%', height: 180, borderRadius: 22, backgroundColor: COLORS.white },
+  readyBackdropRow: { flexDirection: 'row', gap: 14 },
+  readyBackdropTile: { flex: 1, height: 126, borderRadius: 18, backgroundColor: COLORS.white },
+  readyOverlayScroll: { flex: 1, minHeight: 0, backgroundColor: COLORS.scrim },
+  readyOverlayContent: { flexGrow: 1, alignItems: 'center', justifyContent: 'flex-end', paddingTop: 24, paddingHorizontal: 10 },
+  readySheet: { position: 'relative', width: '100%', maxWidth: 448, alignItems: 'center', paddingTop: 24, paddingHorizontal: 16, paddingBottom: 18, borderTopLeftRadius: 30, borderTopRightRadius: 30, backgroundColor: COLORS.canvas },
+  sheetHandle: { width: 46, height: 5, marginBottom: 18, borderRadius: 3, backgroundColor: COLORS.hairline },
+  sheetBack: { position: 'absolute', top: 11, left: 10, zIndex: 1, width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 21 },
+  readySheetTitle: { color: COLORS.ink, fontSize: 21, lineHeight: 27, fontWeight: '700', textAlign: 'center', letterSpacing: -0.25 },
   readyMeta: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 },
   readyMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   readyMetaText: { color: COLORS.body, fontSize: 13, lineHeight: 18, fontWeight: '600' },
   readyDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: COLORS.hairline },
   phoneGuide: { alignItems: 'center', justifyContent: 'center', marginTop: 22, minHeight: 194, padding: 20, borderWidth: 1, borderColor: COLORS.hairline, borderRadius: 20, backgroundColor: COLORS.white },
+  phoneGuideCompact: { width: '100%', minHeight: 156, marginTop: 18, paddingVertical: 14 },
   guideArt: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 15 },
   phoneStand: { transform: [{ rotate: '-8deg' }] },
   guideDistance: { width: 46, height: 1, marginBottom: 8, backgroundColor: COLORS.hairline },
@@ -252,6 +320,7 @@ const styles = createThemedStyles({
   trustRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 18, marginTop: 18 },
   trustItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   trustText: { color: COLORS.muted, fontSize: 11, lineHeight: 15 },
+  readyPrimaryButton: { marginTop: 18 },
   cameraPreview: { width: '100%', maxWidth: 420, aspectRatio: 3 / 4, maxHeight: 500, alignSelf: 'center', marginTop: 18, overflow: 'hidden', borderRadius: 22, backgroundColor: '#121113' },
   preflightPanel: { marginTop: 18, padding: 18, borderWidth: 1, borderColor: COLORS.hairline, borderRadius: 18, backgroundColor: COLORS.white },
   preflightEyebrow: { color: COLORS.brand, fontSize: 12, lineHeight: 16, fontWeight: '700', textTransform: 'uppercase' },
@@ -270,7 +339,7 @@ const styles = createThemedStyles({
 
 const darkStyles = StyleSheet.create({
   safe: { flex: 1, minHeight: 0, alignItems: 'center', justifyContent: 'center', padding: 12, backgroundColor: '#050505' },
-  frame: { position: 'relative', width: '100%', maxWidth: 520, flex: 1, overflow: 'hidden', borderRadius: 28, backgroundColor: '#121113' },
+  frame: { position: 'relative', width: '100%', maxWidth: 520, height: '88%', maxHeight: 760, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderRadius: 28, backgroundColor: '#121113' },
   camera: { width: '100%', height: '100%', borderRadius: 28 },
   overlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'space-between', padding: 18, backgroundColor: 'rgba(0,0,0,0.12)' },
   topRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
@@ -281,7 +350,7 @@ const darkStyles = StyleSheet.create({
   warningChip: { minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 18, backgroundColor: 'rgba(18,17,19,0.82)' },
   warningText: { color: '#FFFFFF', fontSize: 12, lineHeight: 16, fontWeight: '600' },
   repBlock: { alignItems: 'flex-end' },
-  repCount: { color: '#FFFFFF', fontSize: 42, lineHeight: 45, fontWeight: '800', fontVariant: ['tabular-nums'], letterSpacing: -1.4 },
+  repCount: { color: '#FFFFFF', fontSize: 54, lineHeight: 57, fontWeight: '800', fontVariant: ['tabular-nums'], letterSpacing: -1.8 },
   repTarget: { color: 'rgba(255,255,255,0.62)', fontSize: 19, fontWeight: '700' },
   exerciseLabel: { marginTop: 2, color: 'rgba(255,255,255,0.78)', fontSize: 10, lineHeight: 13, fontWeight: '700', letterSpacing: 1.2 },
   coachCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },

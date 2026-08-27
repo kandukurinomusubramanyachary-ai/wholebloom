@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
+import { Platform, View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
@@ -9,19 +9,20 @@ import { getCycleDay } from '../utils/helpers';
 import Button from '../components/Button';
 import { Entrance } from '../components/Motion';
 import { periodRange } from '../services/periodValidation';
+import { localDateKey } from '../utils/dateKey';
 
 export default function DayDetailScreen({ route, navigation }) {
-  const { date } = route.params;
+  const date = localDateKey(route?.params?.date);
   const { state, deleteCheckin } = useApp();
   const [deleteNotice, setDeleteNotice] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [deletingCheckin, setDeletingCheckin] = useState(false);
-  const checkin = state.checkins.find(c => c.date === date);
-  const meals = (state.meals || []).filter(item => item.date === date);
-  const movements = (state.movements || []).filter(item => item.date === date);
-  const medications = (state.medications || []).filter(item => item.date === date);
+  const checkin = (Array.isArray(state.checkins) ? state.checkins : []).find(c => c?.date === date);
+  const meals = (Array.isArray(state.meals) ? state.meals : []).filter(item => item?.date === date);
+  const movements = (Array.isArray(state.movements) ? state.movements : []).filter(item => item?.date === date);
+  const medications = (Array.isArray(state.medications) ? state.medications : []).filter(item => item?.date === date);
   const selectedDate = parseISO(date);
-  const period = [...state.periods]
+  const period = [...(Array.isArray(state.periods) ? state.periods : [])]
     .sort((first, second) => String(second?.startDate || '').localeCompare(String(first?.startDate || '')))
     .find((item) => {
       const range = periodRange(item);
@@ -41,8 +42,8 @@ export default function DayDetailScreen({ route, navigation }) {
   const symptomData = (checkin?.symptoms || [])
     .map(symptomId => SYMPTOMS.find(symptom => symptom.id === symptomId))
     .filter(Boolean);
-  const priorPeriod = [...state.periods]
-    .filter(item => item.startDate <= date)
+  const priorPeriod = [...(Array.isArray(state.periods) ? state.periods : [])]
+    .filter(item => typeof item?.startDate === 'string' && item.startDate <= date)
     .sort((a, b) => b.startDate.localeCompare(a.startDate))[0];
   const cycleDay = priorPeriod ? getCycleDay(priorPeriod.startDate, dateObj) : null;
   const hasAnyRecord = checkin || period || meals.length || movements.length || medications.length;
@@ -68,12 +69,27 @@ export default function DayDetailScreen({ route, navigation }) {
       : `${value}${suffix}`;
   }
 
+  if (state.isLoading) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <View
+          style={styles.loadingState}
+          accessibilityRole='progressbar'
+          accessibilityLabel='Loading day details'
+        >
+          <Ionicons name='calendar-clear-outline' size={28} color={COLORS.brand} />
+          <Text style={styles.loadingText}>Loading this day…</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={Platform.OS === 'web'}
       >
         <View style={styles.inner}>
           <View style={styles.header}>
@@ -288,7 +304,7 @@ export default function DayDetailScreen({ route, navigation }) {
                 ]}
               >
                 <Ionicons name='trash-outline' size={18} color={COLORS.error} />
-                <Text style={styles.deleteEntryText}>{deletingCheckin ? 'Deleting check-inâ€¦' : 'Delete this check-in'}</Text>
+                <Text style={styles.deleteEntryText}>{deletingCheckin ? 'Deleting check-in…' : 'Delete this check-in'}</Text>
               </Pressable>
             </View>
           ) : null}
@@ -366,9 +382,46 @@ export default function DayDetailScreen({ route, navigation }) {
 }
 
 const styles = createThemedStyles({
-  safeArea: { flex: 1, backgroundColor: COLORS.canvas },
-  scrollView: { flex: 1 },
+  safeArea: {
+    flex: 1,
+    minHeight: 0,
+    backgroundColor: COLORS.canvas,
+    ...Platform.select({
+      web: {
+        height: '100vh',
+        maxHeight: '100vh',
+        overflow: 'hidden',
+      },
+      default: {},
+    }),
+  },
+  scrollView: {
+    flex: 1,
+    minHeight: 0,
+    ...Platform.select({
+      web: {
+        height: '100%',
+        maxHeight: '100%',
+        overflowY: 'auto',
+        overscrollBehavior: 'contain',
+      },
+      default: {},
+    }),
+  },
   scrollContent: { flexGrow: 1, paddingBottom: 40 },
+  loadingState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingHorizontal: LAYOUT.screenPadding,
+  },
+  loadingText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: COLORS.muted,
+    textAlign: 'center',
+  },
   inner: {
     width: '100%',
     maxWidth: LAYOUT.maxContentWidth,

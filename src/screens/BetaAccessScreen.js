@@ -3,7 +3,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -81,14 +80,13 @@ export default function BetaAccessScreen() {
           keyboardShouldPersistTaps='handled'
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
-          showsVerticalScrollIndicator={false}
+          showsVerticalScrollIndicator={Platform.OS === 'web'}
         >
           <Entrance style={styles.shell} distance={8} duration={230}>
             <BrandMark size='large' layout='stacked' style={styles.brand} />
 
             <View style={styles.heading}>
-              <Text style={styles.eyebrow}>BLOOM BETA</Text>
-              <Text style={styles.title}>Check your Beta access</Text>
+              <Text style={styles.title}>Bloom Beta access</Text>
               <Text style={styles.subtitle}>
                 Use the email address you joined the Bloom waitlist with.
               </Text>
@@ -115,7 +113,7 @@ export default function BetaAccessScreen() {
                 placeholderTextColor={COLORS.muted}
                 accessibilityLabel='Bloom Beta email address'
                 accessibilityHint='Enter the email address used to join the Bloom waitlist'
-                accessibilityState={{ disabled: loading }}
+                accessibilityState={{ disabled: loading, invalid }}
                 style={[
                   styles.input,
                   focused && styles.inputFocused,
@@ -153,6 +151,7 @@ export default function BetaAccessScreen() {
               {status === 'eligible' ? (
                 <View
                   style={[styles.result, styles.eligibleResult]}
+                  accessibilityRole='status'
                   accessibilityLiveRegion='polite'
                 >
                   <View style={[styles.resultIcon, styles.eligibleIcon]}>
@@ -160,7 +159,7 @@ export default function BetaAccessScreen() {
                   </View>
                   <View style={styles.resultCopy}>
                     <Text style={styles.eligibleTitle}>
-                      You’re on the Bloom Beta list 🌷
+                      You’re on the Bloom Beta list
                     </Text>
                     <Text style={styles.nextStep}>
                       Continue with secure email sign-in
@@ -201,13 +200,31 @@ export default function BetaAccessScreen() {
 const styles = createThemedStyles({
   safeArea: {
     flex: 1,
+    minHeight: 0,
     backgroundColor: COLORS.splash,
+    ...Platform.select({
+      web: {
+        height: '100vh',
+        maxHeight: '100vh',
+        overflow: 'hidden',
+      },
+      default: {},
+    }),
   },
   keyboard: {
     flex: 1,
   },
   scroll: {
     flex: 1,
+    minHeight: 0,
+    ...Platform.select({
+      web: {
+        height: '100%',
+        overflowY: 'auto',
+        overscrollBehavior: 'contain',
+      },
+      default: {},
+    }),
   },
   content: {
     flexGrow: 1,
@@ -217,7 +234,7 @@ const styles = createThemedStyles({
   },
   shell: {
     width: '100%',
-    maxWidth: 420,
+    maxWidth: LAYOUT.phoneMaxWidth,
     alignSelf: 'center',
   },
   brand: {
@@ -227,14 +244,6 @@ const styles = createThemedStyles({
   heading: {
     alignItems: 'center',
     marginBottom: 22,
-  },
-  eyebrow: {
-    marginBottom: 8,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    color: COLORS.brand,
   },
   title: {
     fontSize: 28,
@@ -257,7 +266,7 @@ const styles = createThemedStyles({
     padding: 20,
     borderWidth: 1,
     borderColor: COLORS.hairline,
-    borderRadius: 20,
+    borderRadius: LAYOUT.cardRadius,
     backgroundColor: COLORS.white,
   },
   label: {
@@ -268,7 +277,7 @@ const styles = createThemedStyles({
     color: COLORS.ink,
   },
   input: {
-    minHeight: 52,
+    minHeight: 56,
     paddingHorizontal: 15,
     borderWidth: 1,
     borderColor: COLORS.borderStrong,
@@ -333,7 +342,7 @@ const styles = createThemedStyles({
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 18,
+    borderRadius: 10,
   },
   eligibleIcon: {
     backgroundColor: COLORS.white,

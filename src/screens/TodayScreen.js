@@ -55,7 +55,7 @@ function CycleContext({ state, navigation }) {
   const phaseLabel = state.currentPhase?.label ? friendlyPhaseLabel(state.currentPhase.label) : null;
   const activePhase = phaseIndexForLabel(state.currentPhase?.label);
 
-  if (!latestPeriod || !cycleDay || !phaseLabel) {
+  if (!latestPeriod || !cycleDay) {
     return (
       <View style={styles.cycleCard}>
         <Text style={styles.cycleEyebrow}>CURRENT PHASE</Text>
@@ -81,7 +81,7 @@ function CycleContext({ state, navigation }) {
       <Text style={styles.cycleEyebrow}>CURRENT PHASE</Text>
       <View style={styles.phaseTitleRow}>
         <Ionicons name='water' size={22} color={COLORS.brand} />
-        <Text style={styles.phaseTitle}>{phaseLabel}</Text>
+        <Text style={styles.phaseTitle}>{phaseLabel || 'Pattern still forming'}</Text>
       </View>
       <View style={styles.dayPill}>
         <Text style={styles.dayPillText}>Day {cycleDay} of your cycle</Text>

@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Platform, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
-import { COLORS, createThemedStyles, LAYOUT } from '../utils/constants';
+import { COLORS, createThemedStyles, LAYOUT, WEB_FOCUS } from '../utils/constants';
 import { notifications } from '../services/notifications';
 import ScreenHeader from '../components/ScreenHeader';
+import ScreenScaffold from '../components/ScreenScaffold';
 
 const DEFAULT_REMINDERS = {
   checkin: { enabled: true, time: '20:00' },
@@ -168,9 +168,10 @@ export default function RemindersScreen({ navigation }) {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.content}>
+    <ScreenScaffold
+      contentContainerStyle={styles.scrollContent}
+      innerStyle={styles.content}
+    >
           <BackButton onPress={() => navigation.goBack()} />
           <ScreenHeader
             title='Reminders'
@@ -280,9 +281,7 @@ export default function RemindersScreen({ navigation }) {
               Bloom uses quiet, neutral notification text. Your device controls whether reminders are delivered.
             </Text>
           </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+    </ScreenScaffold>
   );
 }
 
@@ -307,10 +306,8 @@ function BackButton({ onPress }) {
 }
 
 const styles = createThemedStyles({
-  safeArea: { flex: 1, backgroundColor: COLORS.canvas },
-  scroll: { flex: 1 },
   scrollContent: { paddingBottom: 48 },
-  content: { width: '100%', maxWidth: LAYOUT.maxContentWidth, alignSelf: 'center', paddingHorizontal: LAYOUT.screenPadding, paddingTop: 12 },
+  content: { maxWidth: LAYOUT.phoneMaxWidth, paddingTop: 12 },
   backButton: { minHeight: 48, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 2, marginLeft: -6, marginBottom: 8, paddingHorizontal: 6 },
   backText: { fontSize: 15, fontWeight: '600', color: COLORS.ink },
   pressed: { opacity: 0.65, transform: [{ scale: 0.98 }] },
@@ -330,7 +327,10 @@ const styles = createThemedStyles({
   reminderHeader: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
   headerPressed: { backgroundColor: COLORS.surfaceSoft },
   headerHovered: { backgroundColor: COLORS.surfaceWarm },
-  headerFocused: { backgroundColor: COLORS.brandSoft },
+  headerFocused: {
+    backgroundColor: COLORS.brandSoft,
+    ...Platform.select({ web: WEB_FOCUS, default: {} }),
+  },
   iconBox: { width: 40, height: 40, borderRadius: 12, backgroundColor: COLORS.brandSoft, alignItems: 'center', justifyContent: 'center' },
   reminderCopy: { flex: 1 },
   reminderLabel: { fontSize: 15, lineHeight: 20, fontWeight: '600', color: COLORS.ink },
@@ -342,12 +342,19 @@ const styles = createThemedStyles({
   timePicker: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 18, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16, borderTopWidth: 1, borderTopColor: COLORS.hairline, backgroundColor: COLORS.surfaceSoft },
   timeButton: { width: 48, height: 48, borderRadius: 12, borderWidth: 1, borderColor: COLORS.hairline, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.canvas },
   timeButtonHovered: { borderColor: '#D7B1A5', backgroundColor: COLORS.surfaceWarm },
-  focusedControl: { borderColor: COLORS.brand },
+  focusedControl: {
+    borderColor: COLORS.brand,
+    ...Platform.select({ web: WEB_FOCUS, default: {} }),
+  },
   timeCopy: { minWidth: 98, alignItems: 'center' },
   timeLabel: { fontSize: 11, lineHeight: 15, color: COLORS.muted },
   timeText: { marginTop: 2, fontSize: 20, lineHeight: 25, fontWeight: '700', color: COLORS.ink, fontVariant: ['tabular-nums'] },
   note: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingHorizontal: 4, paddingVertical: 20 },
   noteText: { flex: 1, fontSize: 13, lineHeight: 19, color: COLORS.muted },
   backButtonHovered: { backgroundColor: COLORS.surfaceSoft, borderRadius: 10 },
-  backButtonFocused: { backgroundColor: COLORS.brandSoft, borderRadius: 10 },
+  backButtonFocused: {
+    backgroundColor: COLORS.brandSoft,
+    borderRadius: 10,
+    ...Platform.select({ web: WEB_FOCUS, default: {} }),
+  },
 });

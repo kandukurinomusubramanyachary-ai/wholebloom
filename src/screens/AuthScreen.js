@@ -4,7 +4,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -78,7 +77,7 @@ function ConsentCheckbox({ checked, onPress, label, error, optional = false, dis
         ]}
       >
         <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
-          {checked ? <Ionicons name='checkmark' size={15} color={COLORS.white} /> : null}
+          {checked ? <Ionicons name='checkmark' size={15} color={COLORS.onBrand} /> : null}
         </View>
         <View style={styles.consentCopy}>
           {optional ? <Text style={styles.optionalLabel}>Optional</Text> : null}
@@ -177,7 +176,7 @@ export default function AuthScreen() {
           keyboardShouldPersistTaps='handled'
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           automaticallyAdjustKeyboardInsets
-          showsVerticalScrollIndicator={false}
+          showsVerticalScrollIndicator={Platform.OS === 'web'}
         >
           <Entrance style={styles.shell} distance={8} duration={230}>
             <BrandMark size='large' layout='stacked' style={styles.brand} />
@@ -305,7 +304,11 @@ export default function AuthScreen() {
               ) : null}
 
               {configurationError || errors.form ? (
-                <View style={styles.formError} accessibilityRole='alert'>
+                <View
+                  style={styles.formError}
+                  accessibilityRole='alert'
+                  accessibilityLiveRegion='assertive'
+                >
                   <Ionicons name='alert-circle-outline' size={19} color={COLORS.error} />
                   <Text style={styles.formErrorText}>{configurationError || errors.form}</Text>
                 </View>
@@ -334,9 +337,32 @@ export default function AuthScreen() {
 }
 
 const styles = createThemedStyles({
-  safeArea: { flex: 1, backgroundColor: COLORS.splash },
+  safeArea: {
+    flex: 1,
+    minHeight: 0,
+    backgroundColor: COLORS.splash,
+    ...Platform.select({
+      web: {
+        height: '100vh',
+        maxHeight: '100vh',
+        overflow: 'hidden',
+      },
+      default: {},
+    }),
+  },
   keyboardView: { flex: 1 },
-  scroll: { flex: 1 },
+  scroll: {
+    flex: 1,
+    minHeight: 0,
+    ...Platform.select({
+      web: {
+        height: '100%',
+        overflowY: 'auto',
+        overscrollBehavior: 'contain',
+      },
+      default: {},
+    }),
+  },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -345,7 +371,7 @@ const styles = createThemedStyles({
   },
   shell: {
     width: '100%',
-    maxWidth: 440,
+    maxWidth: LAYOUT.phoneMaxWidth,
     alignSelf: 'center',
   },
   brand: { alignSelf: 'center', marginBottom: 30 },
@@ -412,7 +438,13 @@ const styles = createThemedStyles({
       default: {},
     }),
   },
-  inputFocused: { borderColor: COLORS.brand },
+  inputFocused: {
+    borderColor: COLORS.brand,
+    ...Platform.select({
+      web: WEB_FOCUS,
+      default: {},
+    }),
+  },
   inputError: { borderColor: COLORS.error },
   fieldError: { fontSize: 13, lineHeight: 18, color: COLORS.error },
   passwordHint: { marginTop: -10, fontSize: 13, lineHeight: 18, color: COLORS.muted },
@@ -476,4 +508,3 @@ const styles = createThemedStyles({
   pressed: { opacity: 0.72 },
   disabled: { opacity: 0.6 },
 });
-

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { Platform, View, Text, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
@@ -40,7 +40,7 @@ function ArticleBody({ content }) {
 }
 
 export default function ArticleScreen({ route, navigation }) {
-  const { articleId } = route.params;
+  const articleId = route?.params?.articleId;
   const { state, toggleBookmark } = useApp();
   const article = ARTICLES.find(a => a.id === articleId);
 
@@ -72,14 +72,14 @@ export default function ArticleScreen({ route, navigation }) {
     );
   }
 
-  const isBookmarked = state.bookmarks.includes(article.id);
+  const isBookmarked = (Array.isArray(state.bookmarks) ? state.bookmarks : []).includes(article.id);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <MotionScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={Platform.OS === 'web'}
       >
         <View style={styles.inner}>
           <View style={styles.header}>
@@ -147,10 +147,29 @@ export default function ArticleScreen({ route, navigation }) {
 const styles = createThemedStyles({
   safeArea: {
     flex: 1,
+    minHeight: 0,
     backgroundColor: COLORS.canvas,
+    ...Platform.select({
+      web: {
+        height: '100vh',
+        maxHeight: '100vh',
+        overflow: 'hidden',
+      },
+      default: {},
+    }),
   },
   scrollView: {
     flex: 1,
+    minHeight: 0,
+    ...Platform.select({
+      web: {
+        height: '100%',
+        maxHeight: '100%',
+        overflowY: 'auto',
+        overscrollBehavior: 'contain',
+      },
+      default: {},
+    }),
   },
   scrollContent: {
     flexGrow: 1,

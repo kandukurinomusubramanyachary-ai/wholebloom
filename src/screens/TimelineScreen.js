@@ -579,7 +579,7 @@ function CycleInsightsCard({ model, averageCycleLength, currentPhase }) {
       <View style={styles.insightsCard}>
         <View style={styles.gentleHeader}>
           <Text style={styles.gentleDay}>{currentCycleDay ? `Day ${currentCycleDay}` : 'Cycle day —'}</Text>
-          <Text numberOfLines={1} style={styles.gentlePhase}>{currentPhase?.label || 'Add a period to begin'}</Text>
+          <Text numberOfLines={1} style={styles.gentlePhase}>{currentPhase?.label || (latest ? 'Pattern still forming' : 'Add a period to begin')}</Text>
         </View>
         <View
           style={styles.gentleTrack}
