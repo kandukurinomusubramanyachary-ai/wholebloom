@@ -33,7 +33,7 @@ jobs:
         run: npm test
 
       - name: Run Meg V2 engine tests
-        run: npm test --prefix meg-engine-v2
+        run: timeout 120s npm test --prefix meg-engine-v2 -- --test-reporter=spec
 
       - name: Typecheck
         run: npm run typecheck
