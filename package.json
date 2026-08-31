@@ -14,13 +14,7 @@
     "test:backend": "node server/megBackend.test.js",
     "test:rules": "firebase emulators:exec --only firestore --project demo-bloom-auth \"node server/firestore.rules.test.js\"",
     "test:meg": "node server/smokeTest.js",
-    "generate:brand-assets": "node scripts/generate-logo-assets.js",
-    "test:beta": "node server/betaAccess.test.js",
-    "test:beta-email": "node server/betaLaunchEmail.test.js",
-    "beta-email:dry-run": "node scripts/send-beta-launch-emails.js --mode=production --dry-run",
-    "beta-email:dry-test": "node scripts/send-beta-launch-emails.js --mode=test --dry-run",
-    "beta-email:test": "node scripts/send-beta-launch-emails.js --mode=test",
-    "beta-email:production": "node scripts/send-beta-launch-emails.js --mode=production"
+    "generate:brand-assets": "node scripts/generate-logo-assets.js"
   },
   "dependencies": {
     "@expo/metro-runtime": "~3.2.3",

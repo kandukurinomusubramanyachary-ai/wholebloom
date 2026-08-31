@@ -5,7 +5,6 @@ import { AppState, Easing, Platform } from 'react-native';
 import * as ScreenCapture from 'expo-screen-capture';
 import { useApp } from '../context/AppContext';
 import MainTabNavigator from './MainTabNavigator';
-import ArticleScreen from '../screens/ArticleScreen';
 import DayDetailScreen from '../screens/DayDetailScreen';
 import LogPeriodScreen from '../screens/LogPeriodScreen';
 import PrivacySettingsScreen from '../screens/PrivacySettingsScreen';
@@ -69,16 +68,16 @@ export default function RootNavigator() {
       if (appState.current === 'active' && nextAppState === 'background') {
         backgroundTime.current = Date.now();
       }
-      
+
       if (appState.current === 'background' && nextAppState === 'active') {
         const elapsed = Date.now() - (backgroundTime.current || Date.now());
         const timeoutMs = (state.privacy.appLockTimeout || 5) * 60 * 1000;
-        
+
         if (state.privacy.appLockEnabled && elapsed > timeoutMs) {
           setLocked(true);
         }
       }
-      
+
       appState.current = nextAppState;
     });
 
@@ -136,7 +135,6 @@ export default function RootNavigator() {
           }}
         >
           <Stack.Screen name="Main" component={MainTabNavigator} />
-          <Stack.Screen name="Article" component={ArticleScreen} />
           <Stack.Screen name="DayDetail" component={DayDetailScreen} />
           <Stack.Screen name="LogPeriod" component={LogPeriodScreen} />
           <Stack.Screen name="PrivacySettings" component={PrivacySettingsScreen} />
