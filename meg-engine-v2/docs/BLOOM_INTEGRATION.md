@@ -1,50 +1,90 @@
-# Bloom integration
+# Bloom integration — live architecture
 
-Meg Engine V2 remains standalone. Do not delete the current Bloom Meg backend.
+Meg Engine V2 is now the active Meg engine used by Bloom.
 
-## HTTP contract
+Bloom keeps the current Stitch Meg UI and the existing authenticated frontend endpoint:
 
 ```http
-POST /v2/chat
-Authorization: Bearer <MEG_API_KEY>   # when MEG_API_KEY is configured
+POST /api/meg/chat
+Authorization: Bearer <Firebase ID token>
 Content-Type: application/json
-Accept: text/event-stream
 ```
+
+The Bloom server verifies the Firebase token, derives the user ID from that verified token, maps the approved Bloom context into Meg V2, and calls Meg V2 in-process. The client never supplies a trusted user ID and never calls an AI provider directly.
+
+## Request from the Bloom client
 
 ```json
 {
-  "userId": "user123",
   "conversationId": "abc",
   "messageId": "client-generated-message-id",
   "message": "I feel terrible today",
-  "mode": "auto",
+  "mode": "listen",
+  "supportMode": "listen",
   "language": "en",
   "context": {
     "cycleDay": 42,
-    "symptoms": ["cramps"],
-    "sleepHours": 5
-  }
+    "todayCheckin": {
+      "mood": "low",
+      "sleep": 5
+    }
+  },
+  "history": []
 }
 ```
 
-SSE events are:
+## Response to the Bloom client
 
-- `start`: conversation/message ID, intent, and logical route
-- `metadata`: engine version, cache and safety flags
-- `token`: `{ "text": "..." }`; append it immediately
-- `replace`: deterministic repair of an already-streamed invalid answer; clients should replace the current buffer
-- `done`: message ID and trace ID, plus development-only metrics
-- `error`: a stable error code and no provider details
+```json
+{
+  "message": "...",
+  "conversationId": "abc",
+  "messageId": "...",
+  "source": "meg-v2",
+  "safety": null,
+  "urgent": false,
+  "engineVersion": "0.2.0-bloom-live",
+  "traceId": "..."
+}
+```
 
-## Adapter steps
+Meg V2 still supports its standalone `/v2/chat` SSE transport for testing or future service separation, but Bloom production does not need a second Meg deployment or a `MEG_API_KEY`.
 
-1. Deploy Meg Engine V2 on an internal/private network.
-2. Set `MEG_API_KEY`, a nonzero `RATE_LIMIT_PER_MINUTE`, and keep provider keys only in the Meg service environment.
-3. Add a Bloom server-side client in `src/services/meg.js`; do not call providers from the browser.
-4. Pass Bloom's authenticated user ID, conversation ID, a client-generated `messageId`, language, and only approved context fields.
-5. Parse SSE `token` events and handle `replace`, `done`, and `error`.
-6. Preserve the existing Bloom UI and feature-flag the client: `MEG_ENGINE=v1|v2`.
-7. Shadow or canary requests in 5%, 20%, 50%, then 100% stages. Do not send shadow responses to users or double-write user messages.
-8. Compare safety incidents, fallback rate, TTFT, completion latency, and memory relevance before promotion.
+## Configuration
 
-Bloom should own end-user authorization and verify that the requested user/conversation belongs to the authenticated account. The simple memory-control endpoints in this repo are service primitives, not a replacement for Bloom authorization.
+The only new Meg-specific production configuration is one or more provider keys:
+
+```dotenv
+GEMINI_API_KEY=
+GROQ_API_KEY=
+OPENROUTER_API_KEY=
+```
+
+One key is enough. Adding more gives Meg automatic provider fallback. Model names, routing, retry policy, safety handling, context selection, caching, and provider order all have defaults.
+
+Existing Bloom infrastructure configuration such as Firebase Admin credentials, CORS origins, and the already configured Bloom backend URL remains unchanged.
+
+## Support-mode behavior
+
+The Stitch UI modes are preserved and influence Meg V2 directly:
+
+- `listen` → emotional presence first, automatic route selection
+- `understand` → explanation-oriented prompt, SMART route
+- `plan` → one or two small next steps, SMART route
+- `conversation` → natural wording for a real conversation, SMART route
+- `doctor` → doctor-prep behavior, DOCTOR route
+
+The deterministic Meg V2 intent router, safety router, response guard, memory system, provider fallbacks, retries, circuit breaker, and telemetry remain active underneath these UI modes.
+
+## Security boundary
+
+- Firebase authentication is verified by Bloom before Meg V2 runs.
+- `userId` is derived from the verified Firebase token.
+- A client-supplied UID is never trusted.
+- Provider API keys stay server-side.
+- Bloom context is mapped through an allowlist before it reaches the prompt.
+- The current React Native UI receives only the final Meg response contract.
+
+## Legacy status
+
+The previous Bloom Meg V1 server prompt/provider/persistence/mode implementation has been removed. `src/services/meg.js` is now only the authenticated Bloom client/context adapter for Meg V2.
