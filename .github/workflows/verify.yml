@@ -12,7 +12,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,11 +23,17 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Install dependencies
+      - name: Install Bloom dependencies
         run: npm ci
 
-      - name: Run tests
+      - name: Install Meg V2 dependencies
+        run: npm install --prefix meg-engine-v2 --no-audit --no-fund
+
+      - name: Run Bloom integration tests
         run: npm test
+
+      - name: Run Meg V2 engine tests
+        run: npm test --prefix meg-engine-v2
 
       - name: Typecheck
         run: npm run typecheck
