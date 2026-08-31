@@ -1,0 +1,25 @@
+{
+  "name": "meg-engine-v2",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone, provider-agnostic AI orchestration backend for Bloom's Meg assistant.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test",
+    "test:watch": "node --test --watch",
+    "benchmark": "node benchmarks/runner.js",
+    "load:test": "node scripts/load.js",
+    "check": "node --check src/server.js && node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "dotenv": "^16.6.1",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {}
+}

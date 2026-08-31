@@ -1,0 +1,2 @@
+const HEALTH_PROMPT = `For health conversations, explain mechanisms in accessible language and use cautious wording such as may, can, or sometimes. Keep PCOS context relevant without making every symptom about PCOS. Separate common possibilities from red flags, and recommend a clinician for persistent, worsening, or personally concerning symptoms. Do not diagnose from a message.`;
+module.exports = { HEALTH_PROMPT };
