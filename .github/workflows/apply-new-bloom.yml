@@ -1,0 +1,68 @@
+name: Apply New Bloom Upload
+
+on:
+  push:
+    branches:
+      - staging/new-bloom-upload
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout staging payload
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect payload
+        id: payload
+        shell: bash
+        run: |
+          if [ -f new-bloom-delta.tar.xz.b64 ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Decode payload
+        if: steps.payload.outputs.present == 'true'
+        shell: bash
+        run: base64 -d new-bloom-delta.tar.xz.b64 > /tmp/new-bloom-delta.tar.xz
+
+      - name: Build sanitized New Bloom tree
+        if: steps.payload.outputs.present == 'true'
+        shell: bash
+        run: |
+          git checkout --detach 217485f6701366f3cd4307d202e6c635d69021fb
+          tar -xJf /tmp/new-bloom-delta.tar.xz
+          git status --short
+
+      - name: Clean install
+        if: steps.payload.outputs.present == 'true'
+        run: npm ci
+
+      - name: Run Bloom tests
+        if: steps.payload.outputs.present == 'true'
+        run: npm test
+
+      - name: Typecheck
+        if: steps.payload.outputs.present == 'true'
+        run: npm run typecheck
+
+      - name: Build web
+        if: steps.payload.outputs.present == 'true'
+        run: npm run build:web
+
+      - name: Commit and fast-forward main
+        if: steps.payload.outputs.present == 'true'
+        shell: bash
+        run: |
+          git config user.name "Bloom Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "Apply new Bloom screens and Strength baseline"
+          git push origin HEAD:main
