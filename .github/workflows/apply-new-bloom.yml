@@ -22,7 +22,7 @@ jobs:
         id: payload
         shell: bash
         run: |
-          if [ -f new-bloom-ready.txt ]; then
+          if [ -f new-bloom-runtime-ready.txt ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
@@ -32,16 +32,16 @@ jobs:
         if: steps.payload.outputs.present == 'true'
         shell: bash
         run: |
-          cat new-bloom-delta.part-* > /tmp/new-bloom-delta.b64
-          base64 -d /tmp/new-bloom-delta.b64 > /tmp/new-bloom-delta.tar.xz
-          echo "0f37b57795b4b4d0e05dc21e707b1b5ae47349c8fac72772511896ba6905dbe3  /tmp/new-bloom-delta.tar.xz" | sha256sum -c -
+          cat new-bloom-runtime.part-* > /tmp/new-bloom-runtime.b64
+          base64 -d /tmp/new-bloom-runtime.b64 > /tmp/new-bloom-runtime.tar.xz
+          echo "9e89c33afd363b6703882425ac31583cfb036e2a8fb849a141be8b0250ccb588  /tmp/new-bloom-runtime.tar.xz" | sha256sum -c -
 
       - name: Build sanitized New Bloom tree
         if: steps.payload.outputs.present == 'true'
         shell: bash
         run: |
           git checkout --detach 217485f6701366f3cd4307d202e6c635d69021fb
-          tar -xJf /tmp/new-bloom-delta.tar.xz
+          tar -xJf /tmp/new-bloom-runtime.tar.xz
           git status --short
 
       - name: Clean install
