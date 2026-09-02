@@ -26,6 +26,12 @@ jobs:
             package-lock.json
             meg-engine-v2/package-lock.json
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
       - name: Install Bloom dependencies
         run: npm ci
 
