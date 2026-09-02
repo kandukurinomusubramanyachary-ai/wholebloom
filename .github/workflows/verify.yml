@@ -41,6 +41,9 @@ jobs:
       - name: Run Meg V2 deterministic benchmark
         run: npm run benchmark --prefix meg-engine-v2
 
+      - name: Run Firestore rules tests
+        run: npm run test:rules
+
       - name: Typecheck
         run: npm run typecheck
 
