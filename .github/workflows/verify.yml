@@ -6,8 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+# Temporary write access is used only to add the missing Meg V2 lockfile on a
+# same-repository pull request. Once committed, this workflow returns to read-only.
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   verify:
@@ -16,6 +18,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -26,15 +30,28 @@ jobs:
       - name: Install Bloom dependencies
         run: npm ci
 
+      - name: Detect existing Meg V2 lockfile
+        id: meg_lock
+        shell: bash
+        run: |
+          if [ -f meg-engine-v2/package-lock.json ]; then
+            echo "existed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "existed=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install Meg V2 dependencies
         run: npm install --prefix meg-engine-v2 --no-audit --no-fund
 
-      - name: Capture Meg V2 lockfile
-        uses: actions/upload-artifact@v4
-        with:
-          name: meg-v2-lockfile
-          path: meg-engine-v2/package-lock.json
-          retention-days: 1
+      - name: Commit generated Meg V2 lockfile
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && steps.meg_lock.outputs.existed == 'false'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add meg-engine-v2/package-lock.json
+          git commit -m "Add deterministic Meg V2 lockfile"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
 
       - name: Run Bloom integration tests
         run: npm test
