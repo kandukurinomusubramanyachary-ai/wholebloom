@@ -29,6 +29,13 @@ jobs:
       - name: Install Meg V2 dependencies
         run: npm install --prefix meg-engine-v2 --no-audit --no-fund
 
+      - name: Capture Meg V2 lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: meg-v2-lockfile
+          path: meg-engine-v2/package-lock.json
+          retention-days: 1
+
       - name: Run Bloom integration tests
         run: npm test
 
@@ -40,3 +47,6 @@ jobs:
 
       - name: Build web
         run: npm run build:web
+
+      - name: Build production container
+        run: docker build -t wholebloom:verify .
