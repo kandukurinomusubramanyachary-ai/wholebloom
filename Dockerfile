@@ -8,8 +8,8 @@ ENV MEG_V2_DATA_DIR=/var/lib/bloom/meg-v2
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-COPY meg-engine-v2/package.json ./meg-engine-v2/package.json
-RUN npm install --omit=dev --prefix meg-engine-v2 --no-audit --no-fund
+COPY meg-engine-v2/package.json meg-engine-v2/package-lock.json ./meg-engine-v2/
+RUN npm ci --omit=dev --prefix meg-engine-v2 --no-audit --no-fund
 
 COPY server ./server
 COPY meg-engine-v2 ./meg-engine-v2
