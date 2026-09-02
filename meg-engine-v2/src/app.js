@@ -9,6 +9,27 @@ const { RateLimiter } = require('./reliability/rateLimiter');
 const { createChatHandler } = require('./http/chatHandler');
 const { authenticateRequest } = require('./utils/auth');
 const { createLogger, safeMetadata } = require('./utils/logger');
+const { writeSse } = require('./utils/sse');
+
+function sendCompletedReplaySse(res, result = {}) {
+  const metadata = result.metadata && typeof result.metadata === 'object' ? result.metadata : {};
+  const deduplicated = Boolean(metadata.deduplicated);
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  writeSse(res, 'start', {
+    conversationId: result.conversationId || null,
+    messageId: result.messageId || null,
+    deduplicated,
+  });
+  writeSse(res, 'token', { text: String(result.text || '') });
+  writeSse(res, 'done', {
+    traceId: metadata.traceId || null,
+    messageId: result.messageId || metadata.messageId || null,
+    deduplicated,
+  });
+  res.end();
+}
 
 function createApp(overrides = {}) {
   const config = overrides.config || loadConfig();
@@ -51,7 +72,18 @@ function createApp(overrides = {}) {
     res.json({ service: 'meg-engine-v2', providers: providersStatus });
   });
 
-  app.post('/v2/chat', createChatHandler({ config, providerManager, store, cache, coordinator, logger }));
+  const chatHandler = createChatHandler({ config, providerManager, store, cache, coordinator, logger });
+  app.post('/v2/chat', async (req, res, next) => {
+    try {
+      const result = await chatHandler(req, res);
+      if (!res.headersSent && result && Object.prototype.hasOwnProperty.call(result, 'text')) {
+        return sendCompletedReplaySse(res, result);
+      }
+      return result;
+    } catch (error) {
+      return next(error);
+    }
+  });
 
   // User-control primitives are intentionally thin and storage-agnostic for future Bloom/Firestore wiring.
   app.delete('/v2/memory', (req, res) => {
