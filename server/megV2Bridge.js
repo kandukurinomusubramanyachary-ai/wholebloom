@@ -80,13 +80,24 @@ function routeModeForSupportMode(value) {
   return 'auto';
 }
 
+function resolveMegV2DataDir(environment = process.env) {
+  const configured = typeof environment.MEG_V2_DATA_DIR === 'string'
+    ? environment.MEG_V2_DATA_DIR.trim()
+    : '';
+  const production = String(environment.NODE_ENV || '').trim().toLowerCase() === 'production';
+  if (production && !configured) {
+    throw new Error('MEG_V2_DATA_DIR is required in production and must point to durable storage.');
+  }
+  return configured || path.join(os.tmpdir(), 'bloom-meg-v2');
+}
+
 function buildMegV2Environment(environment = process.env) {
   return {
     ...environment,
     MEG_API_KEY: '',
     ENABLE_LOCAL_FALLBACK: environment.ENABLE_LOCAL_FALLBACK || 'false',
     RATE_LIMIT_PER_MINUTE: environment.RATE_LIMIT_PER_MINUTE || '60',
-    DATA_DIR: environment.MEG_V2_DATA_DIR || path.join(os.tmpdir(), 'bloom-meg-v2'),
+    DATA_DIR: resolveMegV2DataDir(environment),
     ENGINE_VERSION: environment.ENGINE_VERSION || '0.2.0-bloom-live',
   };
 }
@@ -150,6 +161,7 @@ function createMegV2Bridge({ environment = process.env, engineOverrides = {} } =
 module.exports = {
   createMegV2Bridge,
   buildMegV2Environment,
+  resolveMegV2DataDir,
   mapBloomContext,
   routeModeForSupportMode,
 };
