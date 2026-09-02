@@ -1,107 +1,201 @@
 # Meg Engine V2
 
-Standalone, provider-agnostic conversational infrastructure for Bloom's Meg assistant. The model is replaceable; Meg's identity, routing, context policy, memory, safety, reliability, and telemetry live here.
+Meg Engine V2 is Bloom's active conversational engine. It owns Meg's routing, prompt assembly, safety checks, memory, reliability, provider fallback, caching, and telemetry while Bloom keeps the existing Meg UI and authenticated `/api/meg/chat` endpoint.
+
+## Live Bloom architecture
+
+```text
+Bloom Meg UI
+   ↓ Firebase ID token
+POST /api/meg/chat
+   ↓ verified UID + allowlisted Bloom context
+server/megV2Bridge.js
+   ↓ in-process call
+meg-engine-v2
+   ↓
+Gemini / Groq / OpenRouter
+```
+
+Bloom does not expose provider keys to the client and does not trust a client-supplied UID. The server derives the user ID from the verified Firebase token.
+
+The standalone `/v2/chat` SSE route remains available for engine tests and possible future service separation, but Bloom production uses the in-process bridge.
 
 ## What is included
 
-- `POST /v2/chat` with true upstream SSE token forwarding
-- `start`, `metadata`, `token`, `replace`, `done`, and `error` events
-- optional API-key authentication (`MEG_API_KEY`)
-- deterministic safety pre-check before routing, including urgent medical and self-harm paths
-- deterministic intent/complexity/confidence/reason routing with no classifier LLM call
+- deterministic intent and route selection
 - FAST, SMART, DOCTOR, SAFETY, and LOCAL logical routes
-- Gemini, Groq, OpenRouter, and Ollama adapters
-- one provider manager for fallback, bounded retry/backoff+jitter, timeout, latency tracking, and CLOSED/OPEN/HALF_OPEN circuit breaking
-- modular, budgeted Meg prompts with relevant-only Bloom context
-- working, profile, episodic, and provenance-labelled derived memory
-- lexical memory retrieval with recency, importance, category, and redundancy scoring; embeddings can be added behind the same boundary later
-- SQLite persistence with JSON fallback and in-memory test backend
-- client-generated `messageId` idempotency and same-process duplicate-request coordination
-- deterministic response guard for leakage, repeated output, unsafe diagnosis, unsafe medication instructions, and the one-question rule
-- versioned safe educational cache
-- privacy-preserving logs and rich internal telemetry
-- 200-case deterministic benchmark fixture/runner and concurrency load test
+- support-mode instructions for Listen, Understand, Plan, Conversation, and Doctor
+- Gemini, Groq, OpenRouter, and optional Ollama adapters
+- provider fallback, bounded retries, jittered backoff, timeouts, and circuit breaking
+- safety pre-checks for urgent medical and self-harm language
+- response guards for prompt/provider leakage and unsafe output
+- bounded context selection and prompt token budgeting
+- recent conversation history and relevant memory retrieval
+- SQLite persistence with an in-memory test backend
+- client-generated `messageId` idempotency and duplicate-request coordination
+- versioned cache and privacy-preserving telemetry
+- deterministic benchmark fixtures and load tooling
 
-The Bloom codebase is not modified.
+## Installation
 
-## Quick start
+From the repository root:
 
 ```bash
-cp .env.example .env
-npm install
-npm test
-npm run benchmark
-npm start
+npm ci --prefix meg-engine-v2
+npm test --prefix meg-engine-v2
+npm run benchmark --prefix meg-engine-v2
 ```
 
-The service listens at `http://localhost:8787`. At least one configured cloud provider or a reachable Ollama instance is needed for model-backed replies. A deterministic warm outage response is returned if every provider is unavailable.
+Or from this directory:
 
-## API
+```bash
+npm ci
+npm test
+npm run benchmark
+```
+
+At least one cloud provider key is required for model-backed Bloom replies.
+
+## Provider configuration
+
+Configure one or more of:
+
+```dotenv
+GEMINI_API_KEY=
+GROQ_API_KEY=
+OPENROUTER_API_KEY=
+```
+
+One provider is sufficient. More than one enables automatic fallback.
+
+Optional model overrides:
+
+```dotenv
+GEMINI_MODEL=gemini-2.5-flash
+GROQ_MODEL=llama-3.1-8b-instant
+OPENROUTER_MODEL=meta-llama/llama-3.3-8b-instruct:free
+```
+
+Bloom disables local Ollama fallback by default in the in-process bridge unless `ENABLE_LOCAL_FALLBACK` is explicitly enabled.
+
+Default route preference is:
+
+- FAST: Gemini → Groq → OpenRouter
+- SMART: OpenRouter → Gemini → Groq
+- DOCTOR: OpenRouter → Gemini → Groq
+- SAFETY: OpenRouter → Gemini → Groq
+
+See `docs/PROVIDERS.md` for the complete provider configuration.
+
+## Bloom request contract
+
+Bloom's client sends to the existing authenticated endpoint:
+
+```http
+POST /api/meg/chat
+Authorization: Bearer <Firebase ID token>
+Content-Type: application/json
+```
+
+Example request:
+
+```json
+{
+  "conversationId": "abc",
+  "messageId": "client-generated-message-id",
+  "message": "I feel overwhelmed today",
+  "mode": "listen",
+  "supportMode": "listen",
+  "language": "en",
+  "context": {
+    "cycleDay": 42,
+    "todayCheckin": {
+      "mood": "overwhelmed",
+      "sleep": 5
+    }
+  },
+  "history": []
+}
+```
+
+The Bloom server maps this to Meg V2 and injects the verified Firebase UID. Unrelated client fields are not trusted as identity.
+
+Example response:
+
+```json
+{
+  "message": "...",
+  "conversationId": "abc",
+  "messageId": "...",
+  "source": "meg-v2",
+  "safety": null,
+  "urgent": false,
+  "engineVersion": "0.2.0-bloom-live",
+  "traceId": "..."
+}
+```
+
+## Support modes
+
+- `listen` → emotional presence first, automatic route selection
+- `understand` → explanation-oriented SMART route
+- `plan` → small actionable next steps through SMART
+- `conversation` → natural wording for a real-world conversation through SMART
+- `doctor` → doctor-prep behavior through DOCTOR
+
+The safety router and response guard still run underneath every support mode.
+
+## Persistence
+
+Meg V2 stores conversation and memory data in SQLite through `MemoryStore`.
+
+For Bloom production, set `MEG_V2_DATA_DIR` to storage that survives process restarts and deployment replacement. Do not rely on a temporary filesystem for production memory.
+
+Example:
+
+```dotenv
+MEG_V2_DATA_DIR=/var/lib/bloom/meg-v2
+```
+
+The production container declares `/var/lib/bloom/meg-v2` as its data volume. Your hosting platform must mount genuinely persistent storage there, or provide another durable adapter before scaling to multiple replicas.
+
+## Standalone SSE route
+
+For engine-level testing:
 
 ```http
 POST /v2/chat
-Authorization: Bearer <MEG_API_KEY>
 Content-Type: application/json
 Accept: text/event-stream
 ```
 
-```json
-{
-  "userId": "user123",
-  "conversationId": "abc",
-  "messageId": "client-generated-message-id",
-  "message": "Why am I craving sweets?",
-  "mode": "auto",
-  "language": "en",
-  "context": {
-    "cycleDay": 22,
-    "symptoms": ["cramps"],
-    "sleepHours": 5,
-    "mood": "stressed",
-    "recentFood": ["skipped breakfast"]
-  }
-}
-```
+Optional `MEG_API_KEY` authentication applies only to the standalone V2 transport. Bloom's public `/api/meg/chat` endpoint continues to use Firebase authentication instead.
 
-Events are emitted as:
-
-```text
-event: start
-data: {"conversationId":"abc","messageId":"...","intent":"diet_question","route":"FAST"}
-
-event: metadata
-data: {"engineVersion":"0.2.0","cacheHit":false,"safetyTriggered":false}
-
-event: token
-data: {"text":"..."}
-
-event: done
-data: {"messageId":"...","traceId":"..."}
-```
-
-`replace` is emitted only if a streamed answer needs deterministic replacement. Bloom should replace its current buffer when it receives that event. Production responses omit provider names and infrastructure timings; development mode can include them in `done`.
-
-## Configuration and provider order
-
-All model IDs, credentials, timeouts, budgets, and provider orders are environment-driven. The defaults are:
-
-- fast: Gemini → Groq → OpenRouter → Ollama
-- smart, doctor, safety: OpenRouter → Gemini → Groq → Ollama
-- local: Ollama
-
-See `.env.example` and `docs/PROVIDERS.md`. Provider API keys are never committed or sent to Bloom.
+SSE events can include `start`, `metadata`, `token`, `replace`, `done`, and `error`.
 
 ## Verification
 
 ```bash
-npm test                         # unit, integration, safety, reliability tests
-npm run benchmark                # 200 deterministic conversations
-npm run benchmark -- --live --provider gemini
-npm run load:test                # levels 1, 10, 25, 50
+npm test
+npm run benchmark
+npm run load:test
 ```
 
-The deterministic benchmark is fixture-based and is not a clinical-quality claim. Live provider quality, latency, and factual/safety review still require credentials, controlled evaluation, and clinical review.
+From the repository root, release validation should also include:
 
-## Integration plan
+```bash
+npm ci
+npm test
+npm run typecheck
+npm run build:web
+npm ci --prefix meg-engine-v2
+npm test --prefix meg-engine-v2
+npm run benchmark --prefix meg-engine-v2
+npm run test:rules
+```
 
-Keep Bloom's existing Meg backend and UI unchanged during validation. When ready, point Bloom's server-side `src/services/meg.js` at this service, pass a client-generated `messageId`, parse SSE events, and gate traffic with `MEG_ENGINE=v1|v2`. Canary through 5%, 20%, 50%, and 100%; never shadow-write the same message twice. See `docs/BLOOM_INTEGRATION.md`.
+The deterministic benchmark is an engineering regression tool, not a clinical-quality claim. Live provider quality, medical-safety review, latency, and factual evaluation still require controlled testing.
+
+## V1 status
+
+Meg V1 is removed from the live backend. There is no `MEG_ENGINE=v1|v2` runtime fallback and no V1 prompt/provider/persistence stack to silently reactivate. Bloom's active path is Meg V2 only.
