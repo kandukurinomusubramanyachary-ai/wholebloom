@@ -22,40 +22,59 @@ jobs:
         run: |
           git fetch origin feat/strength-v2-final feature/strength-engine-v2-final
 
-      - name: Reconstruct source archive
+      - name: Detect valid Strength source archive prefix
         shell: bash
         run: |
-          set -euo pipefail
-          : > /tmp/strength-source.b64
-          for n in 00 01 02 03 04 05 06 07 08; do
-            git show "origin/feat/strength-v2-final:.strength-v2-source/part${n}" >> /tmp/strength-source.b64
+          set -u
+          rm -f /tmp/source-prefix-*.b64 /tmp/source-prefix-*.tgz
+          cumulative=''
+          : > /tmp/current.b64
+          valid=''
+          for n in 00 01 02 03 04 05 06 07 08 09 10; do
+            git show "origin/feat/strength-v2-final:.strength-v2-source/part${n}" >> /tmp/current.b64
+            if base64 -d /tmp/current.b64 > "/tmp/source-prefix-${n}.tgz" 2>/dev/null && gzip -t "/tmp/source-prefix-${n}.tgz" 2>/dev/null; then
+              echo "VALID_SOURCE_PREFIX=${n}"
+              valid="${n}"
+            else
+              echo "invalid/incomplete source prefix through ${n}"
+            fi
           done
-          base64 -d /tmp/strength-source.b64 > /tmp/strength-source.tar.gz
-          echo '=== SOURCE ARCHIVE ==='
-          file /tmp/strength-source.tar.gz
-          tar -tzf /tmp/strength-source.tar.gz | sed -n '1,220p'
+          if [ -z "${valid}" ]; then
+            echo 'No complete source archive prefix detected.'
+          else
+            echo "=== VALID SOURCE ARCHIVE THROUGH part${valid} ==="
+            tar -tzf "/tmp/source-prefix-${valid}.tgz" | sed -n '1,260p'
+          fi
 
-      - name: Reconstruct large patch archive
+      - name: Inspect large patch payload
         shell: bash
         run: |
-          set -euo pipefail
+          set -u
           : > /tmp/new-bloom-patch.b64
           for n in 00 01 02 03 04 05 06 07 08 09 10 11; do
             git show "origin/feat/strength-v2-final:.new-bloom-patch/part-${n}" >> /tmp/new-bloom-patch.b64
           done
-          base64 -d /tmp/new-bloom-patch.b64 > /tmp/new-bloom-patch.bin
+          if ! base64 -d /tmp/new-bloom-patch.b64 > /tmp/new-bloom-patch.bin 2>/dev/null; then
+            echo 'large patch base64 decode failed'
+            exit 0
+          fi
           echo '=== LARGE PATCH ==='
           file /tmp/new-bloom-patch.bin
           if xz -t /tmp/new-bloom-patch.bin 2>/dev/null; then
             xz -dc /tmp/new-bloom-patch.bin > /tmp/new-bloom-patch.dec
             file /tmp/new-bloom-patch.dec
+            echo '--- decoded payload head ---'
+            head -c 1200 /tmp/new-bloom-patch.dec || true
+            echo
             if tar -tf /tmp/new-bloom-patch.dec >/tmp/patch-list.txt 2>/dev/null; then
-              sed -n '1,320p' /tmp/patch-list.txt
-            else
-              echo 'Decoded xz payload is not a tar archive.'
-              head -c 300 /tmp/new-bloom-patch.dec | xxd
+              echo '--- tar contents ---'
+              sed -n '1,360p' /tmp/patch-list.txt
+            elif grep -q '^diff --git ' /tmp/new-bloom-patch.dec; then
+              echo '--- binary git patch files ---'
+              grep '^diff --git ' /tmp/new-bloom-patch.dec | sed -n '1,260p'
             fi
           else
-            echo 'Payload is not xz; trying tar/gzip.'
-            tar -tf /tmp/new-bloom-patch.bin | sed -n '1,320p'
+            echo 'Payload is not valid xz.'
+            file /tmp/new-bloom-patch.bin
+            head -c 300 /tmp/new-bloom-patch.bin | xxd
           fi
