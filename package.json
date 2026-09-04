@@ -8,11 +8,12 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "server": "node server/index.js",
-    "build:web": "expo export --platform web",
+    "build:web": "expo export --platform web && node scripts/copy-strength-web-assets.js",
     "typecheck": "tsc --noEmit",
     "test": "node server/all.test.js",
     "test:backend": "node server/megV2Bridge.test.js",
     "test:rules": "firebase emulators:exec --only firestore --project demo-bloom-auth \"node server/firestore.rules.test.js\"",
+    "strength:check-assets": "node src/features/strength/web/checkAssets.mjs",
     "generate:brand-assets": "node scripts/generate-logo-assets.js"
   },
   "dependencies": {
