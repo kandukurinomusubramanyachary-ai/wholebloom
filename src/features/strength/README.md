@@ -1,45 +1,167 @@
-# Bloom Strength
+# Bloom Strength — deterministic engine
 
-Strength replaces the former Insights tab when `EXPO_PUBLIC_BLOOM_STRENGTH=1` on web. When disabled, the primary navigation contains four tabs. Native builds use the camera-free guided counter.
+The private, calm, camera-guided first strength set for PCOS beginners.
+This package implements the P0 closed-beta slice from the Bloom Strength PRD
+(v2.0, repo baseline `wholebloom/main@cf758ee`).
 
-## Privacy boundary
+## What lives here
 
-The browser requests camera access only after the user reads the explanation and presses **Enable camera**. MediaPipe Pose Landmarker Lite, its WASM runtime, and model are served from Bloom's local `/public/strength` assets. Frames are read into memory for synchronous inference, never recorded, never uploaded, and discarded after each call.
+The engine is **pure JavaScript with zero runtime dependencies** so every
+counted rep and spoken cue can be reproduced in tests without React, camera,
+network or any LLM.
 
-Only the strict summary allowlist in `engine/strengthPrivacy.js` can enter the UID-scoped device outbox, Firestore, or Strength analytics validation. The Firestore rules independently enforce the same document shape. Bloom currently has no analytics transport, so Strength analytics is a validated no-op.
-
-## Deterministic engine
-
-Each exercise owns versioned states, thresholds, deadbands, required joints, and form cue conditions. The shared rep machine applies confidence gating, minimum transition frames and hold time, minimum cycle time, pause/re-entry behavior, and deterministic accepted-rep events. It does not import Meg or any language model.
-
-Run focused tests with:
-
-```bash
-node server/strengthEngine.test.js
+```
+src/features/strength/
+  engine/
+    geometry.js         — angle/distance helpers over MediaPipe landmarks
+    smoothing.js        — EMA smoothing + one-frame jump rejection
+    confidence.js       — landmark visibility, view detection, framing gate,
+                          multi-person count (the ONLY gating layer)
+    exercises.js        — the three VERSIONED exercise assets (squat v1,
+                          wall push-up v1, side-leg-raise v1): thresholds,
+                          measurements, state-machine config, cue conditions
+    repMachine.js       — deterministic rep state machine (explicit states,
+                          min frames, peak hold, hysteresis, min cycle)
+    positioningCoach.js — one-instruction calibration, 2s stable hold,
+                          tracking cues, auto-pause + re-entry; view locked
+                          at calibration
+    cueScheduler.js     — priority arbitration, 3s gap, 4 cues/min cap,
+                          per-cue cooldowns, stale-speech cancellation
+    session.js          — one set's lifecycle: calibration → countdown →
+                          active → summary; camera-free manual counter;
+                          slow-inference fallback signal; hidden-tab pause
+    reviewGate.js       — professional-review sign-off gate (all three
+                          ship `pending-pro`; no public exposure until
+                          approved on-device)
+  services/
+    strengthPrivacy.js  — strict summary serializer (only the approved
+                          schema leaves the device), deep forbidden-key
+                          scan, analytics event allowlist
+    strengthStorage.js  — local-first storage + UID-scoped outbox, retry,
+                          deletion; never cross-UID reads
+    voiceCoach.js       — browser speech-synthesis wrapper; every utterance
+                          mirrored as visible text; works muted/text-only
+  strengthCopy.js       — all user-facing copy + banned-word guardrail list
+server/
+  strengthEngine.test.js — 48 deterministic tests (run `npm test`)
+  test-harness/
+    poseFactory.js      — synthetic MediaPipe landmarks with kinematically
+                          exact angles for scripted, camera-free validation
 ```
 
-Exercise thresholds are marked `pending-pro` until professional review. They are product tuning values, not medical claims.
+## Boundary rules (enforced by design and tests)
 
-## Native pose runtime decision
+- **No LLM** participates in camera interpretation, counting, cue selection
+  or safety. Rep counts come from a state machine over explicit angles.
+- **No frames, video, audio, landmarks, coordinates or angle timelines**
+  leave the device: `strengthPrivacy.serializeSessionSummary` whitelists the
+  14-field summary schema and `assertNoForbiddenData` deep-scans payloads;
+  unknown input fields are rejected, not silently dropped.
+- **No microphone permission is ever requested** (voice is local
+  synthesis only).
+- **Engine must not import React, Firebase or any network API.** Screen and
+  service layers are the only places allowed to touch those.
+- **Strength never reads or writes Meg** state, prompts or conversations.
 
-Bloom will evaluate `react-native-mediapipe-posedetection@0.4.0` before any custom
-Swift or Kotlin pose module is written. It is the maintained candidate that most
-closely matches the current requirements: React Native 0.74+, iOS and Android,
-VisionCamera live frames, MediaPipe's 33 landmarks, presence and visibility
-confidence, mirror controls, GPU delegates, an Expo config plugin, and bounded
-15 FPS delivery.
+## Determinism and tests
 
-This is a compatibility candidate, not an assumed dependency. It requires React
-Native's New Architecture while Bloom is still on Expo SDK 51. Native adoption is
-therefore gated by all of the following in a disposable development-build spike:
+All time is injected (`now()` clock) and poses are fed frame-by-frame, so a
+session is a pure function of (inputs, timestamps). Run:
 
-1. Expo prebuild completes with the package config plugin and local Lite model.
-2. Android and iOS development builds compile without manual native-project edits.
-3. Front-camera landmarks remain aligned in portrait with cover cropping.
-4. A ten-minute session stays within the latency and memory budgets.
-5. Camera denial, backgrounding, rotation, and detector failure return to Bloom's
-   camera-free guidance without losing the session.
+```sh
+npm test
+```
 
-If the candidate fails one of those requirements, the failure and attempted
-version will be recorded here before considering a local Expo native module.
-Expo Go continues to use the honest camera-free flow.
+The suite covers: smoothing/jump rejection, visibility and framing, complete
+cycles for all three exercises, partial/jitter rejection, minimum cycle
+time, frozen state on lost confidence, calibration hold, wrong-view cue,
+tracking→auto-pause→re-entry, cue priority/cap/cooldown/encouragement
+once-per-set, multi-person immediate pause, low-confidence non-counting,
+camera-free manual counter, stopped/completed summaries, hidden-tab pause,
+slow-inference fallback, privacy serializer rejections, analytics
+allowlist, UID outbox isolation/deletion/logout, the review gate, and the
+banned-copy scan.
+
+## Versioned exercise assets
+
+Each exercise ships as one asset: camera view, required landmarks,
+measurements, thresholds (in `classify`), state machine config and cue
+conditions. **Any threshold change increments `exerciseVersion`** and
+invalidates the professional sign-off in `reviewGate.js`. v1 status for all
+three is `pending-pro` — engineering starting values, NOT clinically
+signed off. No public availability until a qualified physiotherapist/strength
+professional reviews movement, angles, cues and safety wording ON-DEVICE
+(PRD §9).
+
+## Integration points for the Expo web screen (CameStage.web / PoseDetector.web)
+
+1. Open `getUserMedia({ video: { facingMode: 'user' }, audio: false })`.
+2. Run the version-pinned local MediaPipe Pose Landmarker Lite; pass
+   `[{ landmarks }]` (up to two poses) to `session.feedPoses()` per inference.
+3. Use `result.cues[].id` → `strengthCopy.CUE_COPY` for visible text, and
+   `VoiceCoach.speakCue()` for local speech (cancelled when the session
+   returns a new cue or `silence`).
+4. Map `result.instruction` / `tracking` / `paused` / `calibrationReady`
+   to the calibration overlay, auto-pause sheet and progress UI.
+5. On end, persist `session.buildSummary()` through
+   `serializeSessionSummary()` → `StrengthOutbox.saveSession()`. The
+   `display` object is for rendering only and is stripped by the serializer.
+6. `session.checkSlowInference()` drives the offer of camera-free mode.
+7. Call `session.onHidden()` on visibilitychange/blur; stop all media tracks
+   on completion, Stop, route exit, background, logout or fatal error.
+
+The native screen resolves to the camera-free build (manual +1 counter),
+which uses the same session in `mode: 'camera-free'`.
+
+## Hardening pass (production-readiness)
+
+New boundaries and modules — all injected/clock-driven and testable without a
+camera/DOM:
+
+```
+web/
+  cameraStage.web.js      — REAL getUserMedia boundary: explicit user-action
+                            start only, video-only (audio:false), front-facing,
+                            mirrored preview, deterministic track cleanup on
+                            stop/completion/unmount/hidden/logout/fatal.
+  poseRuntime.web.js      — version-pinned LOCAL MediaPipe Tasks-Vision wrapper
+                            (0.10.21, vendored under web/assets/, no CDN),
+                            up to two poses, transient landmarks only, bounded
+                            load retry + camera-free fallback, dispose().
+  strengthController.web.js
+                          — framework-agnostic orchestrator composing camera +
+                            pose runtime + session + inference monitor + outbox;
+                            one call surface for the web screen.
+validation/
+  deviceValidation.js     — real-device harness: the three exercises only,
+                            ground-truth vs engine counts, FPS/latency/disagree,
+                            privacy-safe aggregates, no silent tuning.
+engine/
+  inferenceMonitor.js     — effective FPS/latency; <8fps for 5s latches the
+                            camera-free recommendation.
+  exerciseFingerprint.js  — stable hash of machine gates/classify/form-cue
+                            source; a threshold move changes the fingerprint
+                            and must bump exerciseVersion + re-run review.
+index.js                  — public integration surface (single import for Bloom).
+```
+
+Key contracts now enforced:
+- `buildSummary()` → `StrengthOutbox.saveSession()` round-trips; the
+  `display` block is display-only and is stripped (never persisted); unknown
+  fields still fail closed.
+- `flush()` permanently removes synced records; failures stay queued (no stale
+  re-add).
+- Two people block calibration, active evaluation and re-entry; only person-0
+  is geometrically evaluated.
+- Calibration/paused/re-entry tracking cues and persistent system cues pass
+  through the scheduler (gap/cooldown/cap), not per-frame.
+- Sustained pose relocation reseeds the smoother and freezes rep evaluation
+  until confidence recovers.
+- Re-entry hold time never counts as active movement; the set stays paused
+  until `resumeReady`.
+- Rep counting verified deterministic at 8/10/12/15 fps and under
+  irregular/dropped frames.
+- `platform` is explicit (`web`|`native`); session ids use an injected factory
+  for idempotent persistence.
+
+Run everything with `npm test` (deterministic, zero dependencies).
