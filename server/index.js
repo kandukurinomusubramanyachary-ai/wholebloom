@@ -24,7 +24,13 @@ function cleanOrigin(value) {
 
 function resolveAllowedOrigins(environment = process.env) {
   const production = String(environment.NODE_ENV || '').trim().toLowerCase() === 'production';
-  if (!production) return [...DEFAULT_DEV_CORS_ORIGINS];
+  if (!production) {
+    const extra = String(environment.MEG_EXTRA_CORS_ORIGINS || '')
+      .split(',')
+      .map(cleanOrigin)
+      .filter(Boolean);
+    return [...DEFAULT_DEV_CORS_ORIGINS, ...extra];
+  }
 
   const configured = String(environment.CORS_ALLOWED_ORIGINS || '')
     .split(',')

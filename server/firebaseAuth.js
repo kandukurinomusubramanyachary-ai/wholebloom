@@ -17,6 +17,16 @@ function createRequireFirebaseAuth({
 } = {}) {
   return async function requireFirebaseAuth(request, response, next) {
     const token = bearerTokenFromHeader(request.get('authorization'));
+
+    // Local/preview-only dev token. Production always requires Firebase auth.
+    if (
+      process.env.MEG_DEV_AUTH === '1'
+      && process.env.NODE_ENV !== 'production'
+      && token === 'dev-token'
+    ) {
+      request.auth = { uid: 'dev-user' };
+      return next();
+    }
     if (!token) return response.status(401).json(AUTHENTICATION_ERROR);
 
     try {

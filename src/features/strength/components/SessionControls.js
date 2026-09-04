@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Icon from '../../../components/Icon';
 
 function Control({ icon, label, onPress, large = false, destructive = false }) {
   return (
@@ -10,7 +10,7 @@ function Control({ icon, label, onPress, large = false, destructive = false }) {
       accessibilityLabel={label}
       style={({ pressed, focused }) => [styles.control, large && styles.large, destructive && styles.destructive, focused && styles.focused, pressed && styles.pressed]}
     >
-      <Ionicons name={icon} size={large ? 29 : 21} color={destructive ? '#FF6682' : large ? '#121113' : '#FFFFFF'} />
+      <Icon name={icon} size={large ? 29 : 21} color={destructive ? '#FF6682' : large ? '#121113' : '#FFFFFF'} />
     </Pressable>
   );
 }

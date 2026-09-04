@@ -1,6 +1,6 @@
 import React from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Icon from './Icon';
 import { COLORS, createThemedStyles, TYPOGRAPHY, WEB_FOCUS } from '../utils/constants';
 
 export default function Button({
@@ -48,7 +48,7 @@ export default function Button({
     >
       <View style={styles.content}>
         {icon ? (
-          <Ionicons
+          <Icon
             name={icon}
             size={19}
             color={

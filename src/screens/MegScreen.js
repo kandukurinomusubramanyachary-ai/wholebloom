@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import Icon from '../components/Icon';
 import { useApp } from '../context/AppContext';
 import { COLORS, createThemedStyles, LAYOUT, WEB_FOCUS } from '../utils/constants';
 import {
@@ -132,7 +132,7 @@ function ContextPanel({ context }) {
     <View style={styles.contextPanel}>
       <View style={styles.contextTop}>
         <View style={styles.contextIcon}>
-          <Ionicons name='leaf-outline' size={18} color={COLORS.sage} />
+          <Icon name='leaf-outline' size={18} color={COLORS.sage} />
         </View>
         <View style={styles.flex}>
           <Text style={styles.contextTitle}>Bloom context</Text>
@@ -216,7 +216,7 @@ function ConversationStarters({ onSelect, disabled }) {
             ]}
           >
             <View style={styles.promptIcon}>
-              <Ionicons name={prompt.icon} size={18} color={COLORS.brand} />
+              <Icon name={prompt.icon} size={18} color={COLORS.brand} />
             </View>
             <Text style={styles.promptText}>{prompt.label}</Text>
           </Pressable>
@@ -253,7 +253,7 @@ function FeedbackControls({ value, onSelect, disabled }) {
               pressed && styles.pressed,
             ]}
           >
-            <Ionicons
+            <Icon
               name={option.icon}
               size={15}
               color={selected ? COLORS.brand : COLORS.muted}
@@ -303,7 +303,7 @@ function MessageBubble({ message, onFeedback, onCopy, feedbackDisabled, animate 
     <View style={styles.assistantMessageRow}>
       <View style={[styles.megAvatar, message.safety && styles.safetyAvatar]}>
         {message.safety ? (
-          <Ionicons name='alert-circle-outline' size={19} color={COLORS.warning} />
+          <Icon name='alert-circle-outline' size={19} color={COLORS.warning} />
         ) : (
           <LotusMark size={20} color={COLORS.logo} />
         )}
@@ -341,7 +341,7 @@ function MessageBubble({ message, onFeedback, onCopy, feedbackDisabled, animate 
                   pressed && styles.pressed,
                 ]}
               >
-                <Ionicons name='copy-outline' size={14} color={COLORS.muted} />
+                <Icon name='copy-outline' size={14} color={COLORS.muted} />
                 <Text style={styles.copyLabel}>Copy</Text>
               </Pressable>
             </View>
@@ -413,7 +413,7 @@ function StatusBanner({ type, text, actionLabel, onAction, actionDisabled = fals
       style={[styles.statusBanner, isError ? styles.errorBanner : styles.offlineBanner]}
       accessibilityRole={isError ? 'alert' : 'status'}
     >
-      <Ionicons
+      <Icon
         name={isError ? 'alert-circle-outline' : 'cloud-offline-outline'}
         size={20}
         color={isError ? COLORS.error : COLORS.warning}
@@ -1031,7 +1031,7 @@ export default function MegScreen({ route, navigation }) {
                 typing && styles.disabled,
               ]}
             >
-              <Ionicons name='time-outline' size={22} color={COLORS.muted} />
+              <Icon name='time-outline' size={22} color={COLORS.muted} />
             </Pressable>
             <View style={styles.centeredHeaderTitle} pointerEvents='none'>
               <Text style={styles.title}>Meg</Text>
@@ -1047,7 +1047,7 @@ export default function MegScreen({ route, navigation }) {
                 pressed && styles.pressed,
               ]}
             >
-              <Ionicons name='person-circle-outline' size={23} color={COLORS.muted} />
+              <Icon name='person-circle-outline' size={23} color={COLORS.muted} />
             </Pressable>
           </View>
 
@@ -1068,7 +1068,7 @@ export default function MegScreen({ route, navigation }) {
 
           {notice ? (
             <View style={styles.notice} accessibilityRole='status'>
-              <Ionicons name='checkmark-circle-outline' size={17} color={COLORS.sage} />
+              <Icon name='checkmark-circle-outline' size={17} color={COLORS.sage} />
               <Text style={styles.noticeText}>{notice}</Text>
             </View>
           ) : null}
@@ -1143,7 +1143,7 @@ export default function MegScreen({ route, navigation }) {
                         pressed && input.trim() && !typing && styles.pressed,
                       ]}
                     >
-                      <Ionicons
+                      <Icon
                         name={typing ? 'ellipsis-horizontal' : 'arrow-up'}
                         size={20}
                         color={input.trim() && !typing ? COLORS.onBrand : COLORS.muted}
@@ -1167,13 +1167,13 @@ export default function MegScreen({ route, navigation }) {
                     ]}
                   >
                     <View style={styles.contextNoticeIcon}>
-                      <Ionicons name='sparkles-outline' size={15} color={COLORS.brand} />
+                      <Icon name='sparkles-outline' size={15} color={COLORS.brand} />
                     </View>
                     <View style={styles.contextNoticeCopy}>
                       <Text style={styles.contextNoticeTitle}>{contextNotice.title}</Text>
                       <Text style={styles.contextNoticeDetail}>{contextNotice.detail}</Text>
                     </View>
-                    <Ionicons name='arrow-forward' size={17} color={COLORS.muted} />
+                    <Icon name='arrow-forward' size={17} color={COLORS.muted} />
                   </Pressable>
 
                   <ConversationStarters
@@ -1195,7 +1195,7 @@ export default function MegScreen({ route, navigation }) {
                       pressed && styles.pressed,
                     ]}
                   >
-                    <Ionicons name='chevron-up' size={15} color={COLORS.brand} />
+                    <Icon name='chevron-up' size={15} color={COLORS.brand} />
                     <Text style={styles.earlierMessagesText}>Show earlier messages</Text>
                   </Pressable>
                 ) : null}
@@ -1247,11 +1247,11 @@ export default function MegScreen({ route, navigation }) {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <Ionicons name='heart-outline' size={15} color={COLORS.brand} />
+                  <Icon name='heart-outline' size={15} color={COLORS.brand} />
                   <Text style={styles.modeSummaryText}>
                     {selectedModeLabel || 'Meg will follow your lead'}
                   </Text>
-                  <Ionicons
+                  <Icon
                     name={modePickerOpen ? 'chevron-down' : 'chevron-up'}
                     size={14}
                     color={COLORS.muted}
@@ -1289,7 +1289,7 @@ export default function MegScreen({ route, navigation }) {
                   pressed && styles.pressed,
                 ]}
               >
-                <Ionicons name='add' size={23} color={COLORS.ink} />
+                <Icon name='add' size={23} color={COLORS.ink} />
               </Pressable>
               <TextInput
                 ref={inputRef}
@@ -1326,7 +1326,7 @@ export default function MegScreen({ route, navigation }) {
                   pressed && input.trim() && !typing && styles.pressed,
                 ]}
               >
-                <Ionicons
+                <Icon
                   name={typing ? 'ellipsis-horizontal' : 'arrow-up'}
                   size={21}
                   color={input.trim() && !typing ? COLORS.onBrand : COLORS.muted}
@@ -1371,7 +1371,7 @@ export default function MegScreen({ route, navigation }) {
                     accessibilityLabel='Close Meg menu'
                     style={({ pressed }) => [styles.drawerIconButton, pressed && styles.drawerPressed]}
                   >
-                    <Ionicons name='close' size={26} color='#F3F0EE' />
+                    <Icon name='close' size={26} color='#F3F0EE' />
                   </Pressable>
                 </View>
 
@@ -1382,7 +1382,7 @@ export default function MegScreen({ route, navigation }) {
                     accessibilityRole='button'
                     style={({ pressed }) => [styles.newChatButton, pressed && styles.drawerPressed]}
                   >
-                    <Ionicons name='add' size={19} color={COLORS.onBrand} />
+                    <Icon name='add' size={19} color={COLORS.onBrand} />
                     <Text style={styles.newChatText}>New chat</Text>
                   </Pressable>
                 </View>
@@ -1399,7 +1399,7 @@ export default function MegScreen({ route, navigation }) {
                       accessibilityRole='button'
                       style={({ pressed }) => [styles.drawerNavItem, pressed && styles.drawerPressed]}
                     >
-                      <Ionicons name={item.icon} size={22} color={item.active ? '#F3F0EE' : '#BDB8B6'} />
+                      <Icon name={item.icon} size={22} color={item.active ? '#F3F0EE' : '#BDB8B6'} />
                       <Text style={[styles.drawerNavText, !item.active && styles.drawerMutedText]}>{item.label}</Text>
                     </Pressable>
                   ))}
@@ -1451,7 +1451,7 @@ export default function MegScreen({ route, navigation }) {
                     accessibilityLabel='Open settings'
                     style={({ pressed }) => [styles.drawerIconButton, pressed && styles.drawerPressed]}
                   >
-                    <Ionicons name='settings-outline' size={21} color='#BDB8B6' />
+                    <Icon name='settings-outline' size={21} color='#BDB8B6' />
                   </Pressable>
                 </View>
               </Animated.View>

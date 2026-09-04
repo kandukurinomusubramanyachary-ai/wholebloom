@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Icon from '../components/Icon';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, createThemedStyles } from '../utils/constants';
@@ -46,7 +46,7 @@ function TabIcon({ icon, label, focused, reduceMotion }) {
             style={{ opacity: focused ? 1 : 0.52 }}
           />
         ) : (
-          <Ionicons
+          <Icon
             name={focused ? icon : `${icon}-outline`}
             size={22}
             color={focused ? COLORS.ink : COLORS.muted}

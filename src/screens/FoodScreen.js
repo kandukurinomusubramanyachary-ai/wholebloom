@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import Icon from '../components/Icon';
 import { format, isValid, parseISO } from 'date-fns';
 import { useApp } from '../context/AppContext';
 import { localDateKey } from '../utils/dateKey';
@@ -78,7 +78,7 @@ function ToggleChip({ label, selected, onPress, icon }) {
       accessibilityState={{ checked: selected }}
       style={({ pressed, hovered, focused }) => [styles.toggleChip, selected && styles.toggleChipSelected, hovered && styles.choiceHovered, focused && styles.focusedControl, pressed && styles.pressed]}
     >
-      <Ionicons name={selected ? 'checkmark-circle' : icon} size={18} color={selected ? COLORS.brand : COLORS.muted} />
+      <Icon name={selected ? 'checkmark-circle' : icon} size={18} color={selected ? COLORS.brand : COLORS.muted} />
       <Text style={[styles.toggleChipText, selected && styles.toggleChipTextSelected]}>{label}</Text>
     </Pressable>
   );
@@ -235,12 +235,12 @@ export default function FoodScreen({ navigation, route }) {
           <ScreenHeader
             title='Log what you ate'
             subtitle='Keep it simple. Add only what you remember.'
-            action={<View style={styles.dateBadge}><Ionicons name='calendar-clear-outline' size={15} color={COLORS.brand} /><Text style={styles.dateBadgeText}>{dateLabel(date)}</Text></View>}
+            action={<View style={styles.dateBadge}><Icon name='calendar-clear-outline' size={15} color={COLORS.brand} /><Text style={styles.dateBadgeText}>{dateLabel(date)}</Text></View>}
           />
 
           {notice ? (
             <View style={[styles.notice, notice.type === 'success' && styles.noticeSuccess, notice.type === 'error' && styles.noticeError]} accessibilityLiveRegion='polite'>
-              <Ionicons name={notice.type === 'error' ? 'alert-circle-outline' : notice.type === 'success' ? 'checkmark-circle-outline' : 'information-circle-outline'} size={20} color={notice.type === 'error' ? COLORS.error : notice.type === 'success' ? COLORS.sage : COLORS.brand} />
+              <Icon name={notice.type === 'error' ? 'alert-circle-outline' : notice.type === 'success' ? 'checkmark-circle-outline' : 'information-circle-outline'} size={20} color={notice.type === 'error' ? COLORS.error : notice.type === 'success' ? COLORS.sage : COLORS.brand} />
               <Text style={styles.noticeText}>{notice.text}</Text>
             </View>
           ) : null}
@@ -259,10 +259,10 @@ export default function FoodScreen({ navigation, route }) {
             <Text style={styles.quickSuggestionsLabel}>Recent suggestions</Text>
             <View style={styles.quickSuggestions}>
               {[...favourites, ...recent.filter((meal) => !favourites.some((item) => item.id === meal.id))].slice(0, 4).map((meal) => (
-                <Pressable key={meal.id} onPress={() => populateFromMeal(meal)} accessibilityRole='button' accessibilityLabel={`Use ${mealName(meal)}`} style={({ pressed, hovered, focused }) => [styles.quickSuggestionChip, hovered && styles.choiceHovered, focused && styles.focusedControl, pressed && styles.pressed]}><Ionicons name={isFavourite(meal) ? 'heart-outline' : 'time-outline'} size={15} color={COLORS.brand} /><Text numberOfLines={1} style={styles.quickSuggestionText}>{mealName(meal)}</Text></Pressable>
+                <Pressable key={meal.id} onPress={() => populateFromMeal(meal)} accessibilityRole='button' accessibilityLabel={`Use ${mealName(meal)}`} style={({ pressed, hovered, focused }) => [styles.quickSuggestionChip, hovered && styles.choiceHovered, focused && styles.focusedControl, pressed && styles.pressed]}><Icon name={isFavourite(meal) ? 'heart-outline' : 'time-outline'} size={15} color={COLORS.brand} /><Text numberOfLines={1} style={styles.quickSuggestionText}>{mealName(meal)}</Text></Pressable>
               ))}
               {!favourites.length && !recent.length ? FOOD_TEMPLATES.slice(0, 4).map((template) => (
-                <Pressable key={template.id} onPress={() => chooseTemplate(template)} accessibilityRole='button' accessibilityLabel={`Choose ${template.name}`} style={({ pressed, hovered, focused }) => [styles.quickSuggestionChip, hovered && styles.choiceHovered, focused && styles.focusedControl, pressed && styles.pressed]}><Ionicons name='restaurant-outline' size={15} color={COLORS.brand} /><Text numberOfLines={1} style={styles.quickSuggestionText}>{template.name}</Text></Pressable>
+                <Pressable key={template.id} onPress={() => chooseTemplate(template)} accessibilityRole='button' accessibilityLabel={`Choose ${template.name}`} style={({ pressed, hovered, focused }) => [styles.quickSuggestionChip, hovered && styles.choiceHovered, focused && styles.focusedControl, pressed && styles.pressed]}><Icon name='restaurant-outline' size={15} color={COLORS.brand} /><Text numberOfLines={1} style={styles.quickSuggestionText}>{template.name}</Text></Pressable>
               )) : null}
             </View>
             <Button title={editingId ? 'Save changes' : 'Save meal'} icon='checkmark' onPress={handleSave} disabled={!skipped && !name.trim()} loading={saving} style={styles.quickSaveButton} />
@@ -272,7 +272,7 @@ export default function FoodScreen({ navigation, route }) {
             <Text style={styles.sectionTitle}>Browse familiar meals</Text>
             <Text style={styles.sectionSubtitle}>Search Indian staples or use a quick template.</Text>
             <View style={styles.searchBox}>
-              <Ionicons name='search-outline' size={20} color={COLORS.muted} />
+              <Icon name='search-outline' size={20} color={COLORS.muted} />
               <TextInput
                 value={query}
                 onChangeText={setQuery}
@@ -282,18 +282,18 @@ export default function FoodScreen({ navigation, route }) {
                 accessibilityLabel='Search familiar foods'
                 returnKeyType='search'
               />
-              {query ? <Pressable onPress={() => setQuery('')} accessibilityRole='button' accessibilityLabel='Clear search' style={({ pressed, hovered, focused }) => [styles.clearButton, hovered && styles.clearButtonHovered, focused && styles.clearButtonFocused, pressed && styles.pressed]}><Ionicons name='close-circle' size={21} color={COLORS.muted} /></Pressable> : null}
+              {query ? <Pressable onPress={() => setQuery('')} accessibilityRole='button' accessibilityLabel='Clear search' style={({ pressed, hovered, focused }) => [styles.clearButton, hovered && styles.clearButtonHovered, focused && styles.clearButtonFocused, pressed && styles.pressed]}><Icon name='close-circle' size={21} color={COLORS.muted} /></Pressable> : null}
             </View>
             {templates.length ? (
               <View style={styles.templateList}>
                 {templates.map((template, index) => (
                   <Pressable key={template.id} onPress={() => chooseTemplate(template)} accessibilityRole='button' accessibilityLabel={`Choose ${template.name}`} style={({ pressed, hovered, focused }) => [styles.templateCard, index === templates.length - 1 && styles.templateCardLast, name === template.name && styles.templateCardSelected, hovered && styles.templateCardHovered, focused && styles.focusedControl, pressed && styles.pressed]}>
-                    <View style={styles.templateIcon}><Ionicons name='restaurant-outline' size={18} color={COLORS.brand} /></View>
+                    <View style={styles.templateIcon}><Icon name='restaurant-outline' size={18} color={COLORS.brand} /></View>
                     <View style={styles.templateCopy}>
                       <Text style={styles.templateName}>{template.name}</Text>
                       {template.tags.length ? <Text numberOfLines={1} style={styles.templateMeta}>{template.tags.join(' / ')}</Text> : null}
                     </View>
-                    <Ionicons name={name === template.name ? 'checkmark-circle' : 'add-circle-outline'} size={20} color={name === template.name ? COLORS.brand : COLORS.muted} />
+                    <Icon name={name === template.name ? 'checkmark-circle' : 'add-circle-outline'} size={20} color={name === template.name ? COLORS.brand : COLORS.muted} />
                   </Pressable>
                 ))}
               </View>
@@ -308,7 +308,7 @@ export default function FoodScreen({ navigation, route }) {
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.repeatRow}>
                 {[...favourites, ...recent.filter((meal) => !favourites.some((item) => item.id === meal.id))].slice(0, 6).map((meal) => (
                   <Pressable key={meal.id} onPress={() => populateFromMeal(meal)} accessibilityRole='button' accessibilityLabel={`Repeat ${mealName(meal)}`} style={({ pressed, hovered, focused }) => [styles.repeatCard, hovered && styles.repeatCardHovered, focused && styles.focusedControl, pressed && styles.pressed]}>
-                    <Ionicons name={isFavourite(meal) ? 'heart' : 'time-outline'} size={18} color={isFavourite(meal) ? COLORS.brand : COLORS.sage} />
+                    <Icon name={isFavourite(meal) ? 'heart' : 'time-outline'} size={18} color={isFavourite(meal) ? COLORS.brand : COLORS.sage} />
                     <Text numberOfLines={2} style={styles.repeatName}>{mealName(meal)}</Text>
                     <Text style={styles.repeatAction}>Quick repeat</Text>
                   </Pressable>
@@ -319,7 +319,7 @@ export default function FoodScreen({ navigation, route }) {
 
           <Card style={styles.formCard}>
             <View style={styles.formHeading}>
-              <View style={styles.formIcon}><Ionicons name={editingId ? 'create-outline' : 'add-outline'} size={21} color={COLORS.brand} /></View>
+              <View style={styles.formIcon}><Icon name={editingId ? 'create-outline' : 'add-outline'} size={21} color={COLORS.brand} /></View>
               <View style={styles.flex}><Text style={styles.cardTitle}>{editingId ? 'Edit meal details' : 'Optional details'}</Text><Text style={styles.cardSubtitle}>Skip anything you did not notice.</Text></View>
             </View>
 
@@ -341,7 +341,7 @@ export default function FoodScreen({ navigation, route }) {
             </View>
 
             <View style={styles.observation}>
-              <Ionicons name='sparkles-outline' size={19} color={COLORS.sage} />
+              <Icon name='sparkles-outline' size={19} color={COLORS.sage} />
               <View style={styles.flex}><Text style={styles.observationLabel}>A gentle observation</Text><Text style={styles.observationText}>{observation}</Text></View>
             </View>
 
@@ -353,7 +353,7 @@ export default function FoodScreen({ navigation, route }) {
             <View style={styles.sectionHeadingRow}><View><Text style={styles.sectionTitle}>Meal history</Text><Text style={styles.sectionSubtitle}>{selectedDateMeals.length} on this date / {history.length} total</Text></View></View>
             {history.length === 0 ? (
               <Card variant='cream' style={styles.emptyCard}>
-                <View style={styles.emptyIcon}><Ionicons name='restaurant-outline' size={25} color={COLORS.brand} /></View>
+                <View style={styles.emptyIcon}><Icon name='restaurant-outline' size={25} color={COLORS.brand} /></View>
                 <Text style={styles.emptyTitle}>No meals logged yet</Text>
                 <Text style={styles.emptyText}>Choose a familiar meal above or add your own. One entry is enough to begin.</Text>
               </Card>
@@ -381,7 +381,7 @@ function ChoiceChip({ label, selected, onPress }) {
 }
 
 function BackButton({ onPress }) {
-  return <Pressable onPress={onPress} accessibilityRole='button' accessibilityLabel='Go back' style={({ pressed, hovered, focused }) => [styles.backButton, hovered && styles.backButtonHovered, focused && styles.backButtonFocused, pressed && styles.pressed]}><Ionicons name='chevron-back' size={20} color={COLORS.ink} /><Text style={styles.backText}>Back</Text></Pressable>;
+  return <Pressable onPress={onPress} accessibilityRole='button' accessibilityLabel='Go back' style={({ pressed, hovered, focused }) => [styles.backButton, hovered && styles.backButtonHovered, focused && styles.backButtonFocused, pressed && styles.pressed]}><Icon name='chevron-back' size={20} color={COLORS.ink} /><Text style={styles.backText}>Back</Text></Pressable>;
 }
 
 function MealHistoryCard({ meal, confirming, onRepeat, onEdit, onDelete, onCancelDelete, onConfirmDelete }) {
@@ -389,8 +389,8 @@ function MealHistoryCard({ meal, confirming, onRepeat, onEdit, onDelete, onCance
   return (
     <View style={styles.historyCard}>
       <View style={styles.historyTop}>
-        <View style={styles.historyIcon}><Ionicons name={meal.skipped ? 'remove-outline' : 'restaurant-outline'} size={19} color={COLORS.brand} /></View>
-        <View style={styles.flex}><View style={styles.nameRow}><Text style={styles.historyName}>{mealName(meal)}</Text>{isFavourite(meal) ? <Ionicons name='heart' size={16} color={COLORS.brand} /> : null}</View><Text style={styles.historyMeta}>{meal.mealType || 'Meal'} / {dateLabel(meal.date)}</Text></View>
+        <View style={styles.historyIcon}><Icon name={meal.skipped ? 'remove-outline' : 'restaurant-outline'} size={19} color={COLORS.brand} /></View>
+        <View style={styles.flex}><View style={styles.nameRow}><Text style={styles.historyName}>{mealName(meal)}</Text>{isFavourite(meal) ? <Icon name='heart' size={16} color={COLORS.brand} /> : null}</View><Text style={styles.historyMeta}>{meal.mealType || 'Meal'} / {dateLabel(meal.date)}</Text></View>
       </View>
       {(indicators.length > 0 || meal.tags?.length > 0) ? <View style={styles.miniChipRow}>{[...indicators, ...(meal.tags || [])].map((label) => <View key={label} style={styles.miniChip}><Text style={styles.miniChipText}>{label}</Text></View>)}</View> : null}
       {meal.observation ? <Text style={styles.historyObservation}>{meal.observation}</Text> : null}
@@ -404,7 +404,7 @@ function MealHistoryCard({ meal, confirming, onRepeat, onEdit, onDelete, onCance
 }
 
 function ActionButton({ label, icon, danger, onPress }) {
-  return <Pressable onPress={onPress} accessibilityRole='button' accessibilityLabel={label} style={({ pressed, hovered, focused }) => [styles.actionButton, hovered && styles.actionButtonHovered, focused && styles.actionButtonFocused, pressed && styles.pressed]}>{icon ? <Ionicons name={icon} size={16} color={danger ? COLORS.error : COLORS.body} /> : null}<Text style={[styles.actionText, danger && styles.dangerText]}>{label}</Text></Pressable>;
+  return <Pressable onPress={onPress} accessibilityRole='button' accessibilityLabel={label} style={({ pressed, hovered, focused }) => [styles.actionButton, hovered && styles.actionButtonHovered, focused && styles.actionButtonFocused, pressed && styles.pressed]}>{icon ? <Icon name={icon} size={16} color={danger ? COLORS.error : COLORS.body} /> : null}<Text style={[styles.actionText, danger && styles.dangerText]}>{label}</Text></Pressable>;
 }
 
 const styles = createThemedStyles({

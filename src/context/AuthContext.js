@@ -103,6 +103,25 @@ export function AuthProvider({ children }) {
     setInitializing(true);
     setStartupFailure(null);
 
+    // DEV: skip the login screen by seeding a fake signed-in user.
+    // Toggle with EXPO_PUBLIC_BLOOM_DEV_AUTH=1 in .env (bundle-time value).
+    // getIdToken returns 'dev-token', which the Meg server accepts when
+    // MEG_DEV_AUTH=1 (see server/firebaseAuth.js).
+    if (__DEV__ && process.env.EXPO_PUBLIC_BLOOM_DEV_AUTH === '1') {
+      setUser({
+        uid: 'dev-user',
+        email: 'dev@bloom.local',
+        displayName: 'Dev User',
+        emailVerified: true,
+        isAnonymous: false,
+        providerData: [],
+        getIdToken: async () => 'dev-token',
+      });
+      setStartupFailure(null);
+      setInitializing(false);
+      return undefined;
+    }
+
     const services = initializeFirebaseServices();
     if (services.failure || !services.auth) {
       setUser(null);

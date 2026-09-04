@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import Icon from './Icon';
 import { addMonths, format, isSameDay, parseISO, startOfMonth } from 'date-fns';
 import { COLORS, ELEVATION, LAYOUT, createThemedStyles } from '../utils/constants';
 import { localDateKey } from '../utils/dateKey';
@@ -131,7 +131,7 @@ export default function CalendarDatePicker({
                   pressed && styles.pressed,
                 ]}
               >
-                <Ionicons name='close' size={22} color={COLORS.ink} />
+                <Icon name='close' size={22} color={COLORS.ink} />
               </Pressable>
             </View>
 
@@ -156,7 +156,7 @@ export default function CalendarDatePicker({
                       pressed && canGoPrevious && styles.pressed,
                     ]}
                   >
-                    <Ionicons name='chevron-back' size={22} color={COLORS.ink} />
+                    <Icon name='chevron-back' size={22} color={COLORS.ink} />
                   </Pressable>
                   <Pressable
                     onPress={() => setMode('month')}
@@ -170,7 +170,7 @@ export default function CalendarDatePicker({
                     ]}
                   >
                     <Text style={styles.monthTitle}>{format(visibleMonth, 'MMMM yyyy')}</Text>
-                    <Ionicons name='chevron-down' size={16} color={COLORS.brand} />
+                    <Icon name='chevron-down' size={16} color={COLORS.brand} />
                   </Pressable>
                   <Pressable
                     onPress={() => canGoNext && setVisibleMonth(nextMonth)}
@@ -186,7 +186,7 @@ export default function CalendarDatePicker({
                       pressed && canGoNext && styles.pressed,
                     ]}
                   >
-                    <Ionicons name='chevron-forward' size={22} color={COLORS.ink} />
+                    <Icon name='chevron-forward' size={22} color={COLORS.ink} />
                   </Pressable>
                 </View>
 
@@ -250,7 +250,7 @@ export default function CalendarDatePicker({
                       pressed && styles.pressed,
                     ]}
                   >
-                    <Ionicons name='today-outline' size={17} color={COLORS.brand} />
+                    <Icon name='today-outline' size={17} color={COLORS.brand} />
                     <Text style={styles.todayButtonText}>Today</Text>
                   </Pressable>
                 </View>
@@ -271,7 +271,7 @@ export default function CalendarDatePicker({
                       pressed && styles.pressed,
                     ]}
                   >
-                    <Ionicons name='chevron-back' size={22} color={COLORS.ink} />
+                    <Icon name='chevron-back' size={22} color={COLORS.ink} />
                   </Pressable>
                   <Text style={styles.pickerHeading}>Choose a month</Text>
                   <View style={styles.iconButtonPlaceholder} />
@@ -288,7 +288,7 @@ export default function CalendarDatePicker({
                   ]}
                 >
                   <Text style={styles.yearSelectorText}>{visibleMonth.getFullYear()}</Text>
-                  <Ionicons name='chevron-down' size={17} color={COLORS.brand} />
+                  <Icon name='chevron-down' size={17} color={COLORS.brand} />
                 </Pressable>
                 <View style={styles.monthGrid}>
                   {MONTHS.map((month, index) => {
@@ -337,7 +337,7 @@ export default function CalendarDatePicker({
                       pressed && styles.pressed,
                     ]}
                   >
-                    <Ionicons name='chevron-back' size={22} color={COLORS.ink} />
+                    <Icon name='chevron-back' size={22} color={COLORS.ink} />
                   </Pressable>
                   <Text style={styles.pickerHeading}>Choose a year</Text>
                   <View style={styles.iconButtonPlaceholder} />
@@ -367,7 +367,7 @@ export default function CalendarDatePicker({
                         <Text style={[styles.yearOptionText, selected && styles.yearOptionTextSelected]}>
                           {year}
                         </Text>
-                        {selected ? <Ionicons name='checkmark' size={18} color={COLORS.brand} /> : null}
+                        {selected ? <Icon name='checkmark' size={18} color={COLORS.brand} /> : null}
                       </Pressable>
                     );
                   })}

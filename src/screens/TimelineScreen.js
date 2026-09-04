@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import Icon from '../components/Icon';
 import Svg, { Circle } from 'react-native-svg';
 import {
   addDays,
@@ -225,7 +225,7 @@ function TimelineHeader({ mode, focusDate, onModeChange, onMove, onToday, onClos
               accessibilityLabel='Return to the current month'
               style={({ pressed, focused }) => [styles.todayButton, focused && styles.controlFocus, pressed && styles.pressed]}
             >
-              <Ionicons name='calendar-outline' size={21} color={COLORS.brand} />
+              <Icon name='calendar-outline' size={21} color={COLORS.brand} />
             </Pressable>
           </View>
           <View style={styles.topBar}>
@@ -242,7 +242,7 @@ function TimelineHeader({ mode, focusDate, onModeChange, onMove, onToday, onClos
             accessibilityLabel='Close timeline'
             style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
           >
-            <Ionicons name='close' size={23} color={COLORS.ink} />
+            <Icon name='close' size={23} color={COLORS.ink} />
           </Pressable>
           <CalendarToggle value={mode} onChange={onModeChange} />
           <View style={styles.headerSpacer} />
@@ -256,7 +256,7 @@ function TimelineHeader({ mode, focusDate, onModeChange, onMove, onToday, onClos
           accessibilityLabel={mode === 'month' ? 'Previous month' : 'Previous year'}
           style={({ pressed }) => [styles.periodArrow, pressed && styles.pressed]}
         >
-          <Ionicons name='chevron-back' size={20} color={COLORS.ink} />
+          <Icon name='chevron-back' size={20} color={COLORS.ink} />
         </Pressable>
         <View style={styles.periodHeading}>
           <Text style={[styles.periodTitle, mode === 'year' && styles.yearTitle]}>{title}</Text>
@@ -268,7 +268,7 @@ function TimelineHeader({ mode, focusDate, onModeChange, onMove, onToday, onClos
           accessibilityLabel={mode === 'month' ? 'Next month' : 'Next year'}
           style={({ pressed }) => [styles.periodArrow, pressed && styles.pressed]}
         >
-          <Ionicons name='chevron-forward' size={20} color={COLORS.ink} />
+          <Icon name='chevron-forward' size={20} color={COLORS.ink} />
         </Pressable>
       </View>
     </View>
@@ -351,7 +351,7 @@ function MonthCalendar({ focusDate, selectedDate, model, onSelect, onOpenDay, co
           accessibilityLabel={`Open details for ${format(selectedDate, 'd MMMM')}`}
           style={({ pressed }) => [styles.openDayButton, pressed && styles.pressed]}
         >
-          <Ionicons name='arrow-forward' size={19} color={COLORS.brand} />
+          <Icon name='arrow-forward' size={19} color={COLORS.brand} />
         </Pressable>
       </View>
     </View>
@@ -486,7 +486,7 @@ function CycleSummaryCard({ model, averageCycleLength, currentPhase }) {
   return (
     <View style={styles.summaryCard}>
       <View style={styles.cardHeader}>
-        <View style={styles.cardIcon}><Ionicons name='calendar-clear-outline' size={19} color={COLORS.brand} /></View>
+        <View style={styles.cardIcon}><Icon name='calendar-clear-outline' size={19} color={COLORS.brand} /></View>
         <View style={styles.cardHeaderCopy}>
           <Text style={styles.cardTitle}>Current cycle</Text>
           <Text style={styles.cardSubtitle}>{latest
@@ -636,7 +636,7 @@ function CycleHistory({ model, onLogPrevious }) {
           );
         }) : (
           <View style={styles.historyEmpty}>
-            <Ionicons name='calendar-outline' size={21} color={COLORS.brand} />
+            <Icon name='calendar-outline' size={21} color={COLORS.brand} />
             <Text style={styles.historyEmptyText}>No cycles logged yet. Begin whenever it feels useful.</Text>
           </View>
         )}
@@ -646,14 +646,14 @@ function CycleHistory({ model, onLogPrevious }) {
           accessibilityRole='button'
           style={({ pressed }) => [styles.logPreviousButton, pressed && styles.pressed]}
         >
-          <Ionicons name='add-circle-outline' size={20} color={COLORS.brand} />
+          <Icon name='add-circle-outline' size={20} color={COLORS.brand} />
           <Text style={styles.logPreviousText}>Log previous cycles</Text>
-          <Ionicons name='chevron-forward' size={18} color={COLORS.muted} />
+          <Icon name='chevron-forward' size={18} color={COLORS.muted} />
         </Pressable>
       </View>
 
       <View style={styles.supportNote}>
-        <Ionicons name='sparkles-outline' size={18} color={COLORS.sage} />
+        <Icon name='sparkles-outline' size={18} color={COLORS.sage} />
         <Text style={styles.supportNoteText}>Log 2 or more periods to improve your personal pattern insights.</Text>
       </View>
     </View>
@@ -668,7 +668,7 @@ function EditPeriodButton({ onPress, title = 'Log period dates', icon = 'water' 
         accessibilityRole='button'
         style={({ pressed }) => [styles.editButton, pressed && styles.editButtonPressed]}
       >
-        <Ionicons name={icon} size={20} color={COLORS.white} />
+        <Icon name={icon} size={20} color={COLORS.white} />
         <Text style={styles.editButtonText}>{title}</Text>
       </Pressable>
     </View>

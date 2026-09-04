@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppProvider, useApp } from './src/context/AppContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import RootNavigator from './src/navigation/RootNavigator';
@@ -9,6 +8,7 @@ import SplashScreen from './src/screens/SplashScreen';
 import StartupDiagnosticScreen from './src/components/StartupDiagnosticScreen';
 import { markStartupReady } from './src/diagnostics/startupDiagnostics';
 import { setActiveTheme, statusBarStyleForTheme } from './src/utils/constants';
+import DeviceFrame, { SafeAreaShim } from './src/components/DeviceFrame';
 
 function AuthenticatedBloom() {
   const { state } = useApp();
@@ -72,10 +72,12 @@ function BloomEntry() {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <AuthProvider>
-        <BloomEntry />
-      </AuthProvider>
-    </SafeAreaProvider>
+    <DeviceFrame>
+      <SafeAreaShim>
+        <AuthProvider>
+          <BloomEntry />
+        </AuthProvider>
+      </SafeAreaShim>
+    </DeviceFrame>
   );
 }

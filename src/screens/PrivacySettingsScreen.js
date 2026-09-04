@@ -8,7 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Icon from '../components/Icon';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useApp } from '../context/AppContext';
 import { COLORS, createThemedStyles, LAYOUT, WEB_FOCUS } from '../utils/constants';
@@ -115,7 +115,7 @@ export default function PrivacySettingsScreen({ navigation }) {
           <View style={styles.section}>
             <View style={styles.sectionHeading}>
               <View style={styles.iconBox}>
-                <Ionicons name='lock-closed-outline' size={20} color={COLORS.brand} />
+                <Icon name='lock-closed-outline' size={20} color={COLORS.brand} />
               </View>
               <View style={styles.headingCopy}>
                 <Text style={styles.sectionTitle}>App lock</Text>
@@ -126,7 +126,7 @@ export default function PrivacySettingsScreen({ navigation }) {
             {privacy.appLockEnabled ? (
               <View style={styles.activeLock}>
                 <View style={styles.activeLockCopy}>
-                  <Ionicons name='checkmark-circle' size={20} color={COLORS.sage} />
+                  <Icon name='checkmark-circle' size={20} color={COLORS.sage} />
                   <View style={styles.activeTextWrap}>
                     <Text style={styles.activeTitle}>App lock is on</Text>
                     <Text style={styles.activeDesc}>{privacy.appLockType === 'biometric' ? 'Device security' : 'Bloom PIN'}</Text>
@@ -166,7 +166,7 @@ export default function PrivacySettingsScreen({ navigation }) {
 
           <View style={styles.section}>
             <View style={styles.settingRow}>
-              <View style={styles.settingIcon}><Ionicons name='eye-off-outline' size={19} color={COLORS.brand} /></View>
+              <View style={styles.settingIcon}><Icon name='eye-off-outline' size={19} color={COLORS.brand} /></View>
               <View style={styles.settingCopy}>
                 <Text style={styles.sectionTitle}>Hide app preview</Text>
                 <Text style={styles.sectionDesc}>Prevent screenshots and recent-app previews where your device supports it.</Text>
@@ -184,7 +184,7 @@ export default function PrivacySettingsScreen({ navigation }) {
 
           <View style={styles.section}>
             <View style={styles.settingRow}>
-              <View style={styles.settingIcon}><Ionicons name='notifications-off-outline' size={19} color={COLORS.brand} /></View>
+              <View style={styles.settingIcon}><Icon name='notifications-off-outline' size={19} color={COLORS.brand} /></View>
               <View style={styles.settingCopy}>
                 <Text style={styles.sectionTitle}>Hide sensitive notification content</Text>
                 <Text style={styles.sectionDesc}>Use neutral reminder text on the lock screen.</Text>
@@ -201,7 +201,7 @@ export default function PrivacySettingsScreen({ navigation }) {
 
           <View style={styles.section}>
             <View style={styles.settingRow}>
-              <View style={styles.settingIcon}><Ionicons name='chatbubbles-outline' size={19} color={COLORS.brand} /></View>
+              <View style={styles.settingIcon}><Icon name='chatbubbles-outline' size={19} color={COLORS.brand} /></View>
               <View style={styles.settingCopy}>
                 <Text style={styles.sectionTitle}>Meg memory</Text>
                 <Text style={styles.sectionDesc}>When off, chats still save securely but do not inform new replies.</Text>
@@ -254,7 +254,7 @@ export default function PrivacySettingsScreen({ navigation }) {
           <View style={styles.section}>
             <View style={styles.sectionHeading}>
               <View style={styles.iconBox}>
-                <Ionicons name='timer-outline' size={20} color={COLORS.brand} />
+                <Icon name='timer-outline' size={20} color={COLORS.brand} />
               </View>
               <View style={styles.headingCopy}>
                 <Text style={styles.sectionTitle}>Auto-lock</Text>
@@ -287,7 +287,7 @@ export default function PrivacySettingsScreen({ navigation }) {
           </View>
 
           <View style={styles.localNote}>
-            <Ionicons name='phone-portrait-outline' size={18} color={COLORS.sage} />
+            <Icon name='phone-portrait-outline' size={18} color={COLORS.sage} />
             <Text style={styles.localNoteText}>Bloom keeps cycle dates and check-ins in your private account. Device preferences remain local. Export or delete your records whenever you choose.</Text>
           </View>
     </ScreenScaffold>
@@ -297,7 +297,7 @@ export default function PrivacySettingsScreen({ navigation }) {
 function BackButton({ onPress }) {
   return (
     <Pressable onPress={onPress} accessibilityRole='button' accessibilityLabel='Go back' hitSlop={8} style={({ pressed, hovered, focused }) => [styles.backButton, hovered && styles.backButtonHovered, focused && styles.backButtonFocused, pressed && styles.pressed]}>
-      <Ionicons name='chevron-back' size={20} color={COLORS.ink} />
+      <Icon name='chevron-back' size={20} color={COLORS.ink} />
       <Text style={styles.backText}>Back</Text>
     </Pressable>
   );

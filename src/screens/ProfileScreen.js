@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Platform, View, Text, TextInput, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import Icon from '../components/Icon';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { COLORS, createThemedStyles, ELEVATION, LAYOUT, WEB_FOCUS } from '../utils/constants';
@@ -125,7 +125,7 @@ export default function ProfileScreen({ navigation }) {
                 {state.profile?.age ? `${state.profile.age} years old` : 'A quiet record of your own patterns'}
               </Text>
               <View style={styles.modeBadge}>
-                <Ionicons
+                <Icon
                   name={trackingMode === 'pcos' ? 'flower-outline' : 'calendar-outline'}
                   size={14}
                   color={COLORS.brand}
@@ -159,7 +159,7 @@ export default function ProfileScreen({ navigation }) {
 
           <Card variant='sage' style={styles.privacyNote}>
             <View style={styles.noteIcon}>
-              <Ionicons name='lock-closed-outline' size={20} color={COLORS.sage} />
+              <Icon name='lock-closed-outline' size={20} color={COLORS.sage} />
             </View>
             <View style={styles.flex}>
               <Text style={styles.noteTitle}>Your records belong to your account</Text>
@@ -186,13 +186,13 @@ export default function ProfileScreen({ navigation }) {
                     ]}
                   >
                     <View style={styles.menuIcon}>
-                      <Ionicons name={item.icon} size={21} color={COLORS.body} />
+                      <Icon name={item.icon} size={21} color={COLORS.body} />
                     </View>
                     <View style={styles.menuText}>
                       <Text style={styles.menuTitle}>{item.title}</Text>
                       <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
                     </View>
-                    <Ionicons name='chevron-forward' size={19} color={COLORS.muted} />
+                    <Icon name='chevron-forward' size={19} color={COLORS.muted} />
                   </Pressable>
                 ))}
               </View>
@@ -217,13 +217,13 @@ export default function ProfileScreen({ navigation }) {
                 ]}
               >
                 <View style={styles.menuIcon}>
-                  <Ionicons name='log-out-outline' size={21} color={COLORS.body} />
+                  <Icon name='log-out-outline' size={21} color={COLORS.body} />
                 </View>
                 <View style={styles.menuText}>
                   <Text style={styles.menuTitle}>{loggingOut ? 'Logging out…' : 'Log out'}</Text>
                   <Text style={styles.menuSubtitle}>{user?.email || 'Return to secure sign-in'}</Text>
                 </View>
-                <Ionicons name='chevron-forward' size={19} color={COLORS.muted} />
+                <Icon name='chevron-forward' size={19} color={COLORS.muted} />
               </Pressable>
             </View>
             {logoutError ? <Text style={styles.logoutError} accessibilityRole='alert'>{logoutError}</Text> : null}
@@ -242,7 +242,7 @@ export default function ProfileScreen({ navigation }) {
                   pressed && styles.menuItemPressed,
                 ]}
               >
-                <Ionicons name='trash-outline' size={20} color={COLORS.error} />
+                <Icon name='trash-outline' size={20} color={COLORS.error} />
                 <Text style={styles.deleteTriggerText}>Delete tracked Bloom data</Text>
               </Pressable>
             ) : (
@@ -287,7 +287,7 @@ export default function ProfileScreen({ navigation }) {
                   pressed && styles.menuItemPressed,
                 ]}
               >
-                <Ionicons name='person-remove-outline' size={20} color={COLORS.error} />
+                <Icon name='person-remove-outline' size={20} color={COLORS.error} />
                 <Text style={styles.deleteTriggerText}>Delete Bloom account</Text>
               </Pressable>
             ) : (

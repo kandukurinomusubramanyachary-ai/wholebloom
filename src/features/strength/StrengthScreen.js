@@ -1,1 +1,1 @@
-export { default } from './StrengthUnsupportedScreen';
+export { default } from './GuidedStrengthScreen';

@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import Icon from './Icon';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { COLORS, createThemedStyles, LAYOUT } from '../utils/constants';
 import { useApp } from '../context/AppContext';
@@ -84,7 +84,7 @@ export default function AppLockModal({ visible, onUnlock }) {
           >
             <Entrance style={styles.content} duration={240} distance={8}>
           <BrandMark size='large' />
-          <View style={styles.lockIcon}><Ionicons name='lock-closed-outline' size={22} color={COLORS.brand} /></View>
+          <View style={styles.lockIcon}><Icon name='lock-closed-outline' size={22} color={COLORS.brand} /></View>
           <Text style={styles.title}>Bloom is locked</Text>
           <Text style={styles.subtitle}>{lockType === 'biometric' ? 'Use your device security to continue.' : 'Enter your Bloom PIN to continue.'}</Text>
 
