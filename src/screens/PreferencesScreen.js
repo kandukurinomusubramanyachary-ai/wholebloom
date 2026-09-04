@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Platform, Pressable, Text, TextInput, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Icon from '../components/Icon';
 import { useApp } from '../context/AppContext';
 import {
   COLORS, createThemedStyles,
@@ -58,13 +58,13 @@ function SelectionChip({ item, selected, onPress, multiple = false, wide = false
       ]}
     >
       {item.icon ? (
-        <Ionicons name={item.icon} size={18} color={selected ? COLORS.brand : COLORS.body} />
+        <Icon name={item.icon} size={18} color={selected ? COLORS.brand : COLORS.body} />
       ) : null}
       <Text style={[styles.choiceText, selected && styles.choiceTextSelected]}>
         {item.label || item.title}
       </Text>
       {multiple ? (
-        <Ionicons
+        <Icon
           name={selected ? 'checkmark-circle' : 'ellipse-outline'}
           size={18}
           color={selected ? COLORS.brand : COLORS.hairline}
@@ -91,7 +91,7 @@ function SettingToggle({ title, description, value, onChange, icon, last = false
       ]}
     >
       <View style={styles.toggleIcon}>
-        <Ionicons name={icon} size={19} color={COLORS.brand} />
+        <Icon name={icon} size={19} color={COLORS.brand} />
       </View>
       <View style={styles.toggleCopy}>
         <Text style={styles.toggleTitle}>{title}</Text>
@@ -99,7 +99,7 @@ function SettingToggle({ title, description, value, onChange, icon, last = false
       </View>
       <View style={[styles.switchTrack, value && styles.switchTrackActive]}>
         <View style={[styles.switchKnob, value && styles.switchKnobActive]}>
-          {value ? <Ionicons name='checkmark' size={12} color={COLORS.brand} /> : null}
+          {value ? <Icon name='checkmark' size={12} color={COLORS.brand} /> : null}
         </View>
       </View>
     </Pressable>
@@ -110,7 +110,7 @@ function SectionHeading({ icon, title, description }) {
   return (
     <View style={styles.sectionHeading}>
       <View style={styles.iconBox}>
-        <Ionicons name={icon} size={20} color={COLORS.brand} />
+        <Icon name={icon} size={20} color={COLORS.brand} />
       </View>
       <View style={styles.headingCopy}>
         <Text style={styles.sectionTitle}>{title}</Text>
@@ -289,13 +289,13 @@ export default function PreferencesScreen({ navigation }) {
                     ]}
                   >
                     <View style={[styles.modeIcon, selected && styles.modeIconSelected]}>
-                      <Ionicons name={item.icon} size={21} color={COLORS.brand} />
+                      <Icon name={item.icon} size={21} color={COLORS.brand} />
                     </View>
                     <View style={styles.modeCopy}>
                       <Text style={[styles.modeTitle, selected && styles.choiceTextSelected]}>{item.title}</Text>
                       <Text style={styles.modeDescription}>{item.description}</Text>
                     </View>
-                    <Ionicons
+                    <Icon
                       name={selected ? 'checkmark-circle' : 'ellipse-outline'}
                       size={21}
                       color={selected ? COLORS.brand : COLORS.hairline}
@@ -439,7 +439,7 @@ export default function PreferencesScreen({ navigation }) {
 
           {error ? (
             <View style={styles.errorState} accessibilityRole='alert' accessibilityLiveRegion='assertive'>
-              <Ionicons name='alert-circle-outline' size={20} color={COLORS.error} />
+              <Icon name='alert-circle-outline' size={20} color={COLORS.error} />
               <Text style={styles.errorText}>{error}</Text>
             </View>
           ) : null}
@@ -463,7 +463,7 @@ function BackButton({ onPress }) {
         pressed && styles.pressed,
       ]}
     >
-      <Ionicons name='chevron-back' size={20} color={COLORS.ink} />
+      <Icon name='chevron-back' size={20} color={COLORS.ink} />
       <Text style={styles.backText}>Back</Text>
     </Pressable>
   );

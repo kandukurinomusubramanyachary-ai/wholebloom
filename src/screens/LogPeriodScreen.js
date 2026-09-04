@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Platform, View, Text, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import Icon from '../components/Icon';
 import { useApp } from '../context/AppContext';
 import { COLORS, createThemedStyles, FLOW_LEVELS, LAYOUT } from '../utils/constants';
 import { addDays, format, isAfter, isBefore, parseISO } from 'date-fns';
@@ -35,7 +35,7 @@ function DateControl({
           pressed && styles.pressed,
         ]}
       >
-        <Ionicons name='remove' size={22} color={COLORS.ink} />
+        <Icon name='remove' size={22} color={COLORS.ink} />
       </Pressable>
 
       <Pressable
@@ -50,11 +50,11 @@ function DateControl({
           pressed && styles.pressed,
         ]}
       >
-        <Ionicons name='calendar-clear-outline' size={18} color={COLORS.brand} />
+        <Icon name='calendar-clear-outline' size={18} color={COLORS.brand} />
         <Text style={styles.dateText}>
           {parsedValue ? format(parsedValue, 'MMM d, yyyy') : emptyLabel}
         </Text>
-        <Ionicons name='chevron-down' size={16} color={COLORS.brand} />
+        <Icon name='chevron-down' size={16} color={COLORS.brand} />
       </Pressable>
 
       <Pressable
@@ -71,7 +71,7 @@ function DateControl({
           pressed && !disableNext && styles.pressed,
         ]}
       >
-        <Ionicons name='add' size={22} color={COLORS.ink} />
+        <Icon name='add' size={22} color={COLORS.ink} />
       </Pressable>
     </View>
   );
@@ -188,7 +188,7 @@ export default function LogPeriodScreen({ navigation, route }) {
                 pressed && styles.pressed,
               ]}
             >
-              <Ionicons name='chevron-back' size={22} color={COLORS.ink} />
+              <Icon name='chevron-back' size={22} color={COLORS.ink} />
               <Text style={styles.backLabel}>Back</Text>
             </Pressable>
 
@@ -243,7 +243,7 @@ export default function LogPeriodScreen({ navigation, route }) {
               </View>
               <View style={[styles.toggleTrack, isOngoing && styles.toggleTrackActive]}>
                 <View style={[styles.toggleKnob, isOngoing && styles.toggleKnobActive]}>
-                  {isOngoing ? <Ionicons name='checkmark' size={13} color={COLORS.brand} /> : null}
+                  {isOngoing ? <Icon name='checkmark' size={13} color={COLORS.brand} /> : null}
                 </View>
               </View>
             </Pressable>
@@ -304,7 +304,7 @@ export default function LogPeriodScreen({ navigation, route }) {
                     ]}
                   >
                     <View style={[styles.flowIcon, selected && styles.flowIconSelected]}>
-                      <Ionicons
+                      <Icon
                         name={flowLevel.icon}
                         size={19}
                         color={selected ? COLORS.brand : COLORS.muted}
@@ -313,7 +313,7 @@ export default function LogPeriodScreen({ navigation, route }) {
                     <Text style={[styles.flowLabel, selected && styles.flowLabelSelected]}>
                       {flowLevel.label}
                     </Text>
-                    <Ionicons
+                    <Icon
                       name={selected ? 'checkmark-circle' : 'ellipse-outline'}
                       size={18}
                       color={selected ? COLORS.brand : COLORS.hairline}

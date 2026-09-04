@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Icon from '../components/Icon';
 import { useApp } from '../context/AppContext';
 import { COLORS, createThemedStyles, LAYOUT, WEB_FOCUS } from '../utils/constants';
 import { exportService } from '../services/export';
@@ -45,7 +45,7 @@ export default function ExportDataScreen({ navigation }) {
           <ScreenHeader title='Export your data' subtitle='Take a copy of what you have recorded in Bloom.' />
 
           <View style={[styles.infoCard, styles.privacyBand]}>
-            <View style={styles.infoIcon}><Ionicons name='shield-checkmark-outline' size={22} color={COLORS.sage} /></View>
+            <View style={styles.infoIcon}><Icon name='shield-checkmark-outline' size={22} color={COLORS.sage} /></View>
             <View style={styles.infoCopy}>
               <Text style={styles.infoTitle}>Your records, your choice</Text>
               <Text style={styles.infoText}>Bloom creates the file on this device, then opens your system share sheet when it is available. JSON includes your Meg conversations. Be mindful of where you send health information.</Text>
@@ -53,7 +53,7 @@ export default function ExportDataScreen({ navigation }) {
           </View>
 
           <View style={styles.doctorSection}>
-            <View style={[styles.infoIcon, styles.doctorIcon]}><Ionicons name='medkit-outline' size={22} color={COLORS.brand} /></View>
+            <View style={[styles.infoIcon, styles.doctorIcon]}><Icon name='medkit-outline' size={22} color={COLORS.brand} /></View>
             <View style={styles.infoCopy}>
               <Text style={styles.infoTitle}>Preparing for an appointment?</Text>
               <Text style={styles.infoText}>Choose a date range and preview a concise cycle, symptom, sleep, food, movement, and medicine summary first.</Text>
@@ -83,12 +83,12 @@ export default function ExportDataScreen({ navigation }) {
                     exporting && !isActive && styles.disabledRow,
                   ]}
                 >
-                  <View style={styles.formatIcon}><Ionicons name={format.icon} size={21} color={COLORS.brand} /></View>
+                  <View style={styles.formatIcon}><Icon name={format.icon} size={21} color={COLORS.brand} /></View>
                   <View style={styles.formatCopy}>
                     <Text style={styles.formatLabel}>{format.label}</Text>
                     <Text style={styles.formatDesc}>{format.desc}</Text>
                   </View>
-                  {isActive ? <ActivityIndicator color={COLORS.brand} /> : <Ionicons name='download-outline' size={21} color={COLORS.body} />}
+                  {isActive ? <ActivityIndicator color={COLORS.brand} /> : <Icon name='download-outline' size={21} color={COLORS.body} />}
                 </Pressable>
               );
             })}
@@ -96,7 +96,7 @@ export default function ExportDataScreen({ navigation }) {
 
           {lastExport ? (
             <View style={styles.successNote} accessibilityRole='status'>
-              <Ionicons name='checkmark-circle-outline' size={18} color={COLORS.sage} />
+              <Icon name='checkmark-circle-outline' size={18} color={COLORS.sage} />
               <Text style={styles.successText}>{FORMATS.find((item) => item.id === lastExport)?.label} export prepared.</Text>
             </View>
           ) : null}
@@ -116,7 +116,7 @@ export default function ExportDataScreen({ navigation }) {
 }
 
 function BackButton({ onPress }) {
-  return <Pressable onPress={onPress} accessibilityRole='button' accessibilityLabel='Go back' hitSlop={8} style={({ pressed, hovered, focused }) => [styles.backButton, hovered && styles.backButtonHovered, focused && styles.backButtonFocused, pressed && styles.pressed]}><Ionicons name='chevron-back' size={20} color={COLORS.ink} /><Text style={styles.backText}>Back</Text></Pressable>;
+  return <Pressable onPress={onPress} accessibilityRole='button' accessibilityLabel='Go back' hitSlop={8} style={({ pressed, hovered, focused }) => [styles.backButton, hovered && styles.backButtonHovered, focused && styles.backButtonFocused, pressed && styles.pressed]}><Icon name='chevron-back' size={20} color={COLORS.ink} /><Text style={styles.backText}>Back</Text></Pressable>;
 }
 
 function SummaryRow({ label, value, last = false }) {

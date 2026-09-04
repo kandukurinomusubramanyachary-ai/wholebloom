@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import Icon from '../components/Icon';
 import { format, isValid, parseISO, subDays } from 'date-fns';
 import { useApp } from '../context/AppContext';
 import { COLORS, createThemedStyles, ELEVATION, LAYOUT } from '../utils/constants';
@@ -101,7 +101,7 @@ function ToggleRow({ option, value, onChange, last = false }) {
       ]}
     >
       <View style={styles.toggleIcon}>
-        <Ionicons name={option.icon} size={20} color={COLORS.brand} />
+        <Icon name={option.icon} size={20} color={COLORS.brand} />
       </View>
       <View style={styles.toggleCopy}>
         <Text style={styles.toggleTitle}>{option.title}</Text>
@@ -109,7 +109,7 @@ function ToggleRow({ option, value, onChange, last = false }) {
       </View>
       <View style={[styles.switchTrack, value && styles.switchTrackActive]}>
         <View style={[styles.switchKnob, value && styles.switchKnobActive]}>
-          {value ? <Ionicons name='checkmark' size={12} color={COLORS.brand} /> : null}
+          {value ? <Icon name='checkmark' size={12} color={COLORS.brand} /> : null}
         </View>
       </View>
     </Pressable>
@@ -121,7 +121,7 @@ function PreviewSection({ icon, title, children, excluded = false }) {
     <View style={styles.previewSection}>
       <View style={styles.previewSectionHeading}>
         <View style={styles.previewSectionIcon}>
-          <Ionicons name={icon} size={18} color={COLORS.brand} />
+          <Icon name={icon} size={18} color={COLORS.brand} />
         </View>
         <Text style={styles.previewSectionTitle}>{title}</Text>
       </View>
@@ -242,7 +242,7 @@ export default function DoctorReportScreen({ navigation }) {
           accessibilityRole='progressbar'
           accessibilityLabel='Preparing doctor summary'
         >
-          <Ionicons name='document-text-outline' size={28} color={COLORS.brand} />
+          <Icon name='document-text-outline' size={28} color={COLORS.brand} />
           <Text style={styles.loadingText}>Preparing your doctor summary…</Text>
         </View>
       </SafeAreaView>
@@ -266,13 +266,13 @@ export default function DoctorReportScreen({ navigation }) {
             accessibilityLabel='Go back'
             style={({ pressed, hovered, focused }) => [styles.backButton, hovered && styles.backButtonHovered, focused && styles.backButtonFocused, pressed && styles.pressed]}
           >
-            <Ionicons name='chevron-back' size={21} color={COLORS.ink} />
+            <Icon name='chevron-back' size={21} color={COLORS.ink} />
             <Text style={styles.backText}>Back</Text>
           </Pressable>
 
           <View style={styles.header}>
             <View style={styles.localLabel}>
-              <Ionicons name='shield-checkmark-outline' size={15} color={COLORS.sage} />
+              <Icon name='shield-checkmark-outline' size={15} color={COLORS.sage} />
               <Text style={styles.localLabelText}>Prepared locally on this device</Text>
             </View>
             <Text style={styles.title}>Doctor-ready summary</Text>
@@ -283,7 +283,7 @@ export default function DoctorReportScreen({ navigation }) {
 
           <Card variant='sage' style={styles.megNotice}>
             <View style={styles.megIcon}>
-              <Ionicons name='lock-closed-outline' size={20} color={COLORS.sage} />
+              <Icon name='lock-closed-outline' size={20} color={COLORS.sage} />
             </View>
             <View style={styles.flex}>
               <Text style={styles.megTitle}>Meg conversations stay out</Text>
@@ -322,7 +322,7 @@ export default function DoctorReportScreen({ navigation }) {
               })}
             </View>
             <View style={styles.rangeSummary}>
-              <Ionicons name='calendar-clear-outline' size={17} color={COLORS.muted} />
+              <Icon name='calendar-clear-outline' size={17} color={COLORS.muted} />
               <Text style={styles.rangeSummaryText}>
                 {effectiveSettings.startDate
                   ? `${readableDate(effectiveSettings.startDate)} - ${readableDate(effectiveSettings.endDate)}`
@@ -378,14 +378,14 @@ export default function DoctorReportScreen({ navigation }) {
 
           {error ? (
             <View style={styles.errorState} accessibilityRole='alert' accessibilityLiveRegion='assertive'>
-              <Ionicons name='alert-circle-outline' size={20} color={COLORS.error} />
+              <Icon name='alert-circle-outline' size={20} color={COLORS.error} />
               <Text style={styles.errorText}>{error}</Text>
             </View>
           ) : null}
 
           {success ? (
             <View style={styles.successState} accessibilityRole='status' accessibilityLiveRegion='polite'>
-              <Ionicons name='checkmark-circle-outline' size={20} color={COLORS.sage} />
+              <Icon name='checkmark-circle-outline' size={20} color={COLORS.sage} />
               <Text style={styles.successText}>{success}</Text>
             </View>
           ) : null}
@@ -399,7 +399,7 @@ export default function DoctorReportScreen({ navigation }) {
               </Text>
             </View>
             <View style={styles.previewBadge}>
-              <Ionicons name='eye-outline' size={15} color={COLORS.brand} />
+              <Icon name='eye-outline' size={15} color={COLORS.brand} />
               <Text style={styles.previewBadgeText}>Preview</Text>
             </View>
           </View>
@@ -594,7 +594,7 @@ export default function DoctorReportScreen({ navigation }) {
             </PreviewSection>
 
             <View style={styles.disclaimer}>
-              <Ionicons name='information-circle-outline' size={20} color={COLORS.sage} />
+              <Icon name='information-circle-outline' size={20} color={COLORS.sage} />
               <Text style={styles.disclaimerText}>{report.disclaimer}</Text>
             </View>
           </Card>

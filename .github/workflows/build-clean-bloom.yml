@@ -1,0 +1,123 @@
+name: Build Clean Bloom V2
+
+on:
+  push:
+    branches:
+      - clean/bloom-v2-clean
+
+permissions:
+  contents: write
+
+jobs:
+  clean-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout clean branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Remove dev-only and obsolete files
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          app = Path('src/context/AppContext.js')
+          text = app.read_text()
+          text = text.replace("import { buildSampleCheckins, buildSamplePeriods } from '../services/devSampleData';\n", '')
+          block = """      // DEV: seed realistic sample history so data screens (Insights, Timeline)\n      // look full. Only fills when nothing is stored, so real data is untouched.\n      if (process.env.EXPO_PUBLIC_BLOOM_DEV_AUTH === '1') {\n        if (!Array.isArray(checkins) || checkins.length === 0) {\n          checkins = buildSampleCheckins();\n        }\n        if (!Array.isArray(periods) || periods.length === 0) {\n          periods = buildSamplePeriods();\n        }\n      }\n"""
+          if block not in text:
+              raise SystemExit('Expected dev sample block not found')
+          text = text.replace(block, '')
+          app.write_text(text)
+
+          root = Path('src/navigation/RootNavigator.js')
+          text = root.read_text()
+          text = text.replace("import MovementScreen from '../screens/MovementScreen';\n", '')
+          text = text.replace('          <Stack.Screen name="Movement" component={MovementScreen} />\n', '')
+          root.write_text(text)
+          PY
+
+          rm -f src/screens/MovementScreen.js
+          rm -f DARK_DESIGN.md DESIGN.md PRODUCT.md docs/DEPRECATED_BUILDS.md opencode.json
+          rm -f .github/workflows/build-clean-bloom.yml
+
+      - name: Write clean repository README
+        shell: bash
+        run: |
+          cat > README.md <<'EOF'
+          # Bloom V2 Clean
+
+          Clean Bloom application baseline built from the recovered Final5/Koboyo UI and the live Meg Engine V2 integration.
+
+          ## Product surfaces
+
+          - Today
+          - Timeline / Cycle
+          - Daily Check-in
+          - Meg (Meg Engine V2)
+          - Strength (current baseline; designed to be replaced by the next Strength engine)
+          - Diet / Food
+          - Profile & Settings
+          - Doctor Report
+          - Auth / onboarding flow
+
+          Supporting screens such as period logging/day detail, privacy, reminders, preferences and data export are retained because the product surfaces above depend on them.
+
+          Community is intentionally not included.
+
+          ## Development
+
+          ```bash
+          npm ci
+          npm start
+          ```
+
+          Web build:
+
+          ```bash
+          npm run build:web
+          ```
+
+          Tests:
+
+          ```bash
+          npm test
+          npm test --prefix meg-engine-v2
+          npm run typecheck
+          ```
+
+          ## Meg V2
+
+          Bloom keeps the existing authenticated `/api/meg/chat` app contract while routing requests through `meg-engine-v2` via the server-side V2 bridge. Configure provider and Firebase values from `.env.example`; never commit local secrets.
+          EOF
+          sed -i 's/^          //' README.md
+
+      - name: Install Bloom dependencies
+        run: npm ci
+
+      - name: Install Meg V2 dependencies
+        run: npm ci --prefix meg-engine-v2
+
+      - name: Run Bloom tests
+        run: npm test
+
+      - name: Run Meg V2 tests
+        run: timeout 120s npm test --prefix meg-engine-v2 -- --test-reporter=spec
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build web
+        run: npm run build:web
+
+      - name: Commit verified clean tree
+        shell: bash
+        run: |
+          git config user.name "Bloom Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: create clean Bloom V2 baseline"
+          git push origin HEAD:clean/bloom-v2-clean

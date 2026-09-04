@@ -60,6 +60,7 @@ import {
   predictNextPeriod,
 } from '../utils/helpers';
 import { localDateKey } from '../utils/dateKey';
+import { buildSampleCheckins, buildSamplePeriods } from '../services/devSampleData';
 import { setStartupStage } from '../diagnostics/startupDiagnostics';
 import { logCheckinEvent } from '../diagnostics/checkinDiagnostics';
 import { cleanThemePreference, setActiveTheme } from '../utils/constants';
@@ -341,7 +342,29 @@ export function AppProvider({ children }) {
         ]),
       ]);
 
-      const { profile, checkins, periods } = accountData;
+      let { profile, checkins, periods } = accountData;
+      // DEV: seed a default profile so screens that expect one don't crash
+      // when running with the fake login (no cloud profile available).
+      if (!profile && process.env.EXPO_PUBLIC_BLOOM_DEV_AUTH === '1') {
+        profile = {
+          firstName: 'Dev',
+          preferredName: 'Dev',
+          email: 'dev@bloom.local',
+          consent: true,
+          modelImprovementConsent: false,
+          onboardingCompleted: true,
+        };
+      }
+      // DEV: seed realistic sample history so data screens (Insights, Timeline)
+      // look full. Only fills when nothing is stored, so real data is untouched.
+      if (process.env.EXPO_PUBLIC_BLOOM_DEV_AUTH === '1') {
+        if (!Array.isArray(checkins) || checkins.length === 0) {
+          checkins = buildSampleCheckins();
+        }
+        if (!Array.isArray(periods) || periods.length === 0) {
+          periods = buildSamplePeriods();
+        }
+      }
       const [appLockEnabled, appLockType, appLockPin, appLockTimeout, hidePreview] = privacySettings;
       const loadedSettings = settings && typeof settings === 'object' && !Array.isArray(settings)
         ? settings

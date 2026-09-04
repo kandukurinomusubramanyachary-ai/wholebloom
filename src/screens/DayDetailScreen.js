@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Platform, View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import Icon from '../components/Icon';
 import { useApp } from '../context/AppContext';
 import { COLORS, createThemedStyles, LAYOUT, MOODS, FLOW_LEVELS, SYMPTOMS } from '../utils/constants';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
@@ -77,7 +77,7 @@ export default function DayDetailScreen({ route, navigation }) {
           accessibilityRole='progressbar'
           accessibilityLabel='Loading day details'
         >
-          <Ionicons name='calendar-clear-outline' size={28} color={COLORS.brand} />
+          <Icon name='calendar-clear-outline' size={28} color={COLORS.brand} />
           <Text style={styles.loadingText}>Loading this day…</Text>
         </View>
       </SafeAreaView>
@@ -104,7 +104,7 @@ export default function DayDetailScreen({ route, navigation }) {
                 pressed && styles.pressed,
               ]}
             >
-              <Ionicons name='chevron-back' size={22} color={COLORS.ink} />
+              <Icon name='chevron-back' size={22} color={COLORS.ink} />
               <Text style={styles.backLabel}>Back</Text>
             </Pressable>
             <Text style={styles.dayName}>{dayName}</Text>
@@ -134,7 +134,7 @@ export default function DayDetailScreen({ route, navigation }) {
                 accessibilityRole='status'
                 accessibilityLiveRegion='polite'
               >
-                <Ionicons name='checkmark-circle-outline' size={20} color={COLORS.sage} />
+                <Icon name='checkmark-circle-outline' size={20} color={COLORS.sage} />
                 <Text style={styles.feedbackText}>{deleteNotice}</Text>
               </View>
             </Entrance>
@@ -142,7 +142,7 @@ export default function DayDetailScreen({ route, navigation }) {
 
           {deleteError ? (
             <View style={styles.deleteError} accessibilityRole='alert'>
-              <Ionicons name='alert-circle-outline' size={20} color={COLORS.error} />
+              <Icon name='alert-circle-outline' size={20} color={COLORS.error} />
               <Text style={styles.deleteErrorText}>{deleteError}</Text>
             </View>
           ) : null}
@@ -150,7 +150,7 @@ export default function DayDetailScreen({ route, navigation }) {
           {!hasAnyRecord ? (
             <View style={styles.emptyState}>
               <View style={styles.emptyIcon}>
-                <Ionicons name='calendar-clear-outline' size={28} color={COLORS.brand} />
+                <Icon name='calendar-clear-outline' size={28} color={COLORS.brand} />
               </View>
               <Text style={styles.emptyTitle}>Nothing logged this day</Text>
               <Text style={styles.emptyBody}>
@@ -164,7 +164,7 @@ export default function DayDetailScreen({ route, navigation }) {
             <View style={styles.periodSummary}>
               <View style={styles.sectionHeading}>
                 <View style={[styles.headingIcon, styles.periodIcon]}>
-                  <Ionicons name='water-outline' size={19} color={COLORS.brand} />
+                  <Icon name='water-outline' size={19} color={COLORS.brand} />
                 </View>
                 <View style={styles.headingCopy}>
                   <Text style={styles.sectionTitle}>Period logged</Text>
@@ -187,7 +187,7 @@ export default function DayDetailScreen({ route, navigation }) {
                   pressed && styles.pressed,
                 ]}
               >
-                <Ionicons name='create-outline' size={17} color={COLORS.brand} />
+                <Icon name='create-outline' size={17} color={COLORS.brand} />
                 <Text style={styles.periodEditText}>Edit period dates</Text>
               </Pressable>
             </View>
@@ -200,7 +200,7 @@ export default function DayDetailScreen({ route, navigation }) {
               <View style={styles.detailSection}>
                 <View style={styles.sectionHeading}>
                   <View style={styles.headingIcon}>
-                    <Ionicons
+                    <Icon
                       name={moodData?.icon || 'help-circle-outline'}
                       size={19}
                       color={COLORS.brand}
@@ -219,17 +219,17 @@ export default function DayDetailScreen({ route, navigation }) {
                 <Text style={styles.sectionTitle}>Body basics</Text>
                 <View style={styles.statsRow}>
                   <View style={styles.stat}>
-                    <Ionicons name='battery-half-outline' size={19} color={COLORS.sage} />
+                    <Icon name='battery-half-outline' size={19} color={COLORS.sage} />
                     <Text style={styles.statValue}>{formatMetric(checkin.energy)}</Text>
                     <Text style={styles.statLabel}>Energy</Text>
                   </View>
                   <View style={styles.stat}>
-                    <Ionicons name='moon-outline' size={19} color={COLORS.sage} />
+                    <Icon name='moon-outline' size={19} color={COLORS.sage} />
                     <Text style={styles.statValue}>{formatMetric(checkin.sleep, ' h')}</Text>
                     <Text style={styles.statLabel}>Sleep</Text>
                   </View>
                   <View style={styles.stat}>
-                    <Ionicons name='pulse-outline' size={19} color={COLORS.sage} />
+                    <Icon name='pulse-outline' size={19} color={COLORS.sage} />
                     <Text style={styles.statValue}>{formatMetric(checkin.pain)}</Text>
                     <Text style={styles.statLabel}>Pain</Text>
                   </View>
@@ -239,7 +239,7 @@ export default function DayDetailScreen({ route, navigation }) {
               <View style={styles.detailSection}>
                 <View style={styles.sectionHeading}>
                   <View style={styles.headingIcon}>
-                    <Ionicons
+                    <Icon
                       name={flowData?.icon || 'water-outline'}
                       size={19}
                       color={COLORS.brand}
@@ -260,7 +260,7 @@ export default function DayDetailScreen({ route, navigation }) {
                   <View style={styles.symptomsRow}>
                     {symptomData.map(symptom => (
                       <View key={symptom.id} style={styles.symptomChip}>
-                        <Ionicons name={symptom.icon} size={16} color={COLORS.brand} />
+                        <Icon name={symptom.icon} size={16} color={COLORS.brand} />
                         <Text style={styles.symptomLabel}>{symptom.label}</Text>
                       </View>
                     ))}
@@ -272,7 +272,7 @@ export default function DayDetailScreen({ route, navigation }) {
                 <View style={[styles.detailSection, styles.notesSection]}>
                   <View style={styles.sectionHeading}>
                     <View style={styles.headingIcon}>
-                      <Ionicons name='document-text-outline' size={19} color={COLORS.brand} />
+                      <Icon name='document-text-outline' size={19} color={COLORS.brand} />
                     </View>
                     <View style={styles.headingCopy}>
                       <Text style={styles.sectionTitle}>Notes</Text>
@@ -303,7 +303,7 @@ export default function DayDetailScreen({ route, navigation }) {
                   deletingCheckin && styles.deleteEntryDisabled,
                 ]}
               >
-                <Ionicons name='trash-outline' size={18} color={COLORS.error} />
+                <Icon name='trash-outline' size={18} color={COLORS.error} />
                 <Text style={styles.deleteEntryText}>{deletingCheckin ? 'Deleting check-in…' : 'Delete this check-in'}</Text>
               </Pressable>
             </View>
@@ -329,7 +329,7 @@ export default function DayDetailScreen({ route, navigation }) {
               </View>
               {meals.map(item => (
                 <View key={item.id} style={styles.recordRow}>
-                  <View style={styles.headingIcon}><Ionicons name='restaurant-outline' size={19} color={COLORS.brand} /></View>
+                  <View style={styles.headingIcon}><Icon name='restaurant-outline' size={19} color={COLORS.brand} /></View>
                   <View style={styles.headingCopy}>
                     <Text style={styles.sectionTitle}>{item.name || 'Meal'}</Text>
                     <Text style={styles.primaryValue}>{[item.protein && 'protein', item.fibre && 'fibre', item.produce && 'fruit or vegetables'].filter(Boolean).join(' · ') || 'No meal details added'}</Text>
@@ -359,7 +359,7 @@ export default function DayDetailScreen({ route, navigation }) {
               </View>
               {movements.map(item => (
                 <View key={item.id} style={styles.recordRow}>
-                  <View style={styles.headingIcon}><Ionicons name='walk-outline' size={19} color={COLORS.sage} /></View>
+                  <View style={styles.headingIcon}><Icon name='walk-outline' size={19} color={COLORS.sage} /></View>
                   <View style={styles.headingCopy}>
                     <Text style={styles.sectionTitle}>{item.activityLabel || item.activity || 'Movement'}</Text>
                     <Text style={styles.primaryValue}>{String(item.status || '').replace('_', ' ')}{item.duration ? ` · ${item.duration} min` : ''}</Text>

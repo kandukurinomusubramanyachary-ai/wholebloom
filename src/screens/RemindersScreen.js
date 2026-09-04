@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Icon from '../components/Icon';
 import { useApp } from '../context/AppContext';
 import { COLORS, createThemedStyles, LAYOUT, WEB_FOCUS } from '../utils/constants';
 import { notifications } from '../services/notifications';
@@ -180,14 +180,14 @@ export default function RemindersScreen({ navigation }) {
 
           {error ? (
             <View style={styles.errorState} accessibilityRole='alert' accessibilityLiveRegion='assertive'>
-              <Ionicons name='alert-circle-outline' size={20} color={COLORS.error} />
+              <Icon name='alert-circle-outline' size={20} color={COLORS.error} />
               <Text style={styles.errorText}>{error}</Text>
             </View>
           ) : null}
 
           {status ? (
             <View style={styles.successState} accessibilityRole='status' accessibilityLiveRegion='polite'>
-              <Ionicons name='checkmark-circle-outline' size={20} color={COLORS.sage} />
+              <Icon name='checkmark-circle-outline' size={20} color={COLORS.sage} />
               <Text style={styles.successText}>{status}</Text>
             </View>
           ) : null}
@@ -219,7 +219,7 @@ export default function RemindersScreen({ navigation }) {
                     ]}
                   >
                     <View style={styles.iconBox}>
-                      <Ionicons name={config.icon} size={20} color={COLORS.brand} />
+                      <Icon name={config.icon} size={20} color={COLORS.brand} />
                     </View>
                     <View style={styles.reminderCopy}>
                       <Text style={styles.reminderLabel}>{config.label}</Text>
@@ -227,7 +227,7 @@ export default function RemindersScreen({ navigation }) {
                     </View>
                     <View style={[styles.switchTrack, reminder.enabled && styles.switchTrackActive]}>
                       <View style={[styles.switchKnob, reminder.enabled && styles.switchKnobActive]}>
-                        {reminder.enabled ? <Ionicons name='checkmark' size={12} color={COLORS.brand} /> : null}
+                        {reminder.enabled ? <Icon name='checkmark' size={12} color={COLORS.brand} /> : null}
                       </View>
                     </View>
                   </Pressable>
@@ -247,7 +247,7 @@ export default function RemindersScreen({ navigation }) {
                           pressed && !busyKey && styles.pressed,
                         ]}
                       >
-                        <Ionicons name='remove' size={22} color={COLORS.ink} />
+                        <Icon name='remove' size={22} color={COLORS.ink} />
                       </Pressable>
                       <View style={styles.timeCopy} accessible accessibilityLabel={`${config.label} reminder time ${reminder.time}`}>
                         <Text style={styles.timeLabel}>{busy ? 'Updating' : 'Reminder time'}</Text>
@@ -266,7 +266,7 @@ export default function RemindersScreen({ navigation }) {
                           pressed && !busyKey && styles.pressed,
                         ]}
                       >
-                        <Ionicons name='add' size={22} color={COLORS.ink} />
+                        <Icon name='add' size={22} color={COLORS.ink} />
                       </Pressable>
                     </View>
                   ) : null}
@@ -276,7 +276,7 @@ export default function RemindersScreen({ navigation }) {
           </View>
 
           <View style={styles.note}>
-            <Ionicons name='notifications-outline' size={18} color={COLORS.sage} />
+            <Icon name='notifications-outline' size={18} color={COLORS.sage} />
             <Text style={styles.noteText}>
               Bloom uses quiet, neutral notification text. Your device controls whether reminders are delivered.
             </Text>
@@ -299,7 +299,7 @@ function BackButton({ onPress }) {
         pressed && styles.pressed,
       ]}
     >
-      <Ionicons name='chevron-back' size={20} color={COLORS.ink} />
+      <Icon name='chevron-back' size={20} color={COLORS.ink} />
       <Text style={styles.backText}>Back</Text>
     </Pressable>
   );

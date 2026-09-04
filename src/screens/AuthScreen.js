@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import Icon from '../components/Icon';
 import BrandMark from '../components/BrandMark';
 import Button from '../components/Button';
 import { Entrance } from '../components/Motion';
@@ -77,7 +77,7 @@ function ConsentCheckbox({ checked, onPress, label, error, optional = false, dis
         ]}
       >
         <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
-          {checked ? <Ionicons name='checkmark' size={15} color={COLORS.onBrand} /> : null}
+          {checked ? <Icon name='checkmark' size={15} color={COLORS.onBrand} /> : null}
         </View>
         <View style={styles.consentCopy}>
           {optional ? <Text style={styles.optionalLabel}>Optional</Text> : null}
@@ -309,7 +309,7 @@ export default function AuthScreen() {
                   accessibilityRole='alert'
                   accessibilityLiveRegion='assertive'
                 >
-                  <Ionicons name='alert-circle-outline' size={19} color={COLORS.error} />
+                  <Icon name='alert-circle-outline' size={19} color={COLORS.error} />
                   <Text style={styles.formErrorText}>{configurationError || errors.form}</Text>
                 </View>
               ) : null}
@@ -324,7 +324,7 @@ export default function AuthScreen() {
             </View>
 
             <View style={styles.privacyNote}>
-              <Ionicons name='lock-closed-outline' size={16} color={COLORS.sage} />
+              <Icon name='lock-closed-outline' size={16} color={COLORS.sage} />
               <Text style={styles.privacyText}>
                 Your password is handled by secure sign-in and is never stored in your Bloom records.
               </Text>

@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import Icon from '../components/Icon';
 import { format, isValid, parseISO } from 'date-fns';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
@@ -164,7 +164,7 @@ function ChoiceChip({
       ]}
     >
       {option.icon ? (
-        <Ionicons
+        <Icon
           name={option.icon}
           size={18}
           color={selected ? COLORS.brand : COLORS.body}
@@ -174,7 +174,7 @@ function ChoiceChip({
         {option.label}
       </Text>
       {multiple ? (
-        <Ionicons
+        <Icon
           name={selected ? 'checkmark-circle' : 'ellipse-outline'}
           size={18}
           color={selected ? COLORS.brand : COLORS.hairline}
@@ -441,7 +441,7 @@ export default function DailyCheckInScreen({ route, navigation }) {
                 pressed && styles.pressed,
               ]}
             >
-              <Ionicons name={step === 0 ? 'close' : 'chevron-back'} size={22} color={COLORS.ink} />
+              <Icon name={step === 0 ? 'close' : 'chevron-back'} size={22} color={COLORS.ink} />
             </Pressable>
             <View style={styles.headerCopy}>
               <Text style={styles.eyebrow}>Daily check-in</Text>
@@ -690,7 +690,7 @@ export default function DailyCheckInScreen({ route, navigation }) {
                 <Card style={styles.reviewCard}>
                   <View style={styles.reviewHeading}>
                     <View style={styles.reviewIcon}>
-                      <Ionicons name='body-outline' size={20} color={COLORS.brand} />
+                      <Icon name='body-outline' size={20} color={COLORS.brand} />
                     </View>
                     <Text style={styles.reviewTitle}>Body and mood</Text>
                   </View>
@@ -710,7 +710,7 @@ export default function DailyCheckInScreen({ route, navigation }) {
                 <Card style={styles.reviewCard}>
                   <View style={styles.reviewHeading}>
                     <View style={[styles.reviewIcon, styles.reviewIconSage]}>
-                      <Ionicons name='moon-outline' size={20} color={COLORS.sage} />
+                      <Icon name='moon-outline' size={20} color={COLORS.sage} />
                     </View>
                     <Text style={styles.reviewTitle}>Daily rhythm</Text>
                   </View>
@@ -738,7 +738,7 @@ export default function DailyCheckInScreen({ route, navigation }) {
                 <Card style={styles.reviewCard}>
                   <View style={styles.reviewHeading}>
                     <View style={styles.reviewIcon}>
-                      <Ionicons name='create-outline' size={20} color={COLORS.brand} />
+                      <Icon name='create-outline' size={20} color={COLORS.brand} />
                     </View>
                     <Text style={styles.reviewTitle}>Your notes</Text>
                   </View>
@@ -757,7 +757,7 @@ export default function DailyCheckInScreen({ route, navigation }) {
                 </Card>
 
                 <View style={styles.privateNote}>
-                  <Ionicons name='lock-closed-outline' size={18} color={COLORS.sage} />
+                  <Icon name='lock-closed-outline' size={18} color={COLORS.sage} />
                   <Text style={styles.privateNoteText}>
                     This check-in is stored in your Bloom account. Bloom uses it for personal
                     observations, not diagnosis.
@@ -769,7 +769,7 @@ export default function DailyCheckInScreen({ route, navigation }) {
             {error ? (
               <Entrance duration={180} distance={6}>
                 <View style={styles.error} accessibilityRole='alert' accessibilityLiveRegion='assertive'>
-                  <Ionicons name='alert-circle-outline' size={20} color={COLORS.error} />
+                  <Icon name='alert-circle-outline' size={20} color={COLORS.error} />
                   <Text style={styles.errorText}>{error}</Text>
                 </View>
               </Entrance>

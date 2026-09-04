@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import Icon from '../components/Icon';
 import { format, isValid, parseISO } from 'date-fns';
 import { useApp } from '../context/AppContext';
 import { localDateKey } from '../utils/dateKey';
@@ -213,20 +213,20 @@ export default function MovementScreen({ navigation, route }) {
           <ScreenHeader
             title='Movement and recovery'
             subtitle='Choose what fits your body today. Rest is always a valid option.'
-            action={<View style={styles.dateBadge}><Ionicons name='calendar-clear-outline' size={15} color={COLORS.brand} /><Text style={styles.dateBadgeText}>{dateLabel(date)}</Text></View>}
+            action={<View style={styles.dateBadge}><Icon name='calendar-clear-outline' size={15} color={COLORS.brand} /><Text style={styles.dateBadgeText}>{dateLabel(date)}</Text></View>}
           />
 
           {notice ? (
             <View style={[styles.notice, notice.type === 'success' && styles.noticeSuccess, notice.type === 'error' && styles.noticeError]} accessibilityLiveRegion='polite'>
-              <Ionicons name={notice.type === 'error' ? 'alert-circle-outline' : notice.type === 'success' ? 'checkmark-circle-outline' : 'information-circle-outline'} size={20} color={notice.type === 'error' ? COLORS.error : notice.type === 'success' ? COLORS.sage : COLORS.brand} />
+              <Icon name={notice.type === 'error' ? 'alert-circle-outline' : notice.type === 'success' ? 'checkmark-circle-outline' : 'information-circle-outline'} size={20} color={notice.type === 'error' ? COLORS.error : notice.type === 'success' ? COLORS.sage : COLORS.brand} />
               <Text style={styles.noticeText}>{notice.text}</Text>
             </View>
           ) : null}
 
           <Card variant='sage' style={styles.recommendationCard}>
-            <View style={styles.eyebrowRow}><Ionicons name='sparkles-outline' size={17} color={COLORS.sage} /><Text style={styles.eyebrow}>A gentle suggestion</Text></View>
+            <View style={styles.eyebrowRow}><Icon name='sparkles-outline' size={17} color={COLORS.sage} /><Text style={styles.eyebrow}>A gentle suggestion</Text></View>
             <View style={styles.recommendationMain}>
-              <View style={styles.recommendationIcon}><Ionicons name={recommendedActivity.icon} size={24} color={COLORS.sage} /></View>
+              <View style={styles.recommendationIcon}><Icon name={recommendedActivity.icon} size={24} color={COLORS.sage} /></View>
               <View style={styles.flex}><Text style={styles.recommendationTitle}>{recommendedActivity.label}</Text><Text style={styles.recommendationReason}>{recommendation.reason}</Text></View>
             </View>
             <View style={styles.recommendationActions}>
@@ -248,7 +248,7 @@ export default function MovementScreen({ navigation, route }) {
 
           <Card style={styles.formCard}>
             <View style={styles.formHeading}>
-              <View style={styles.formIcon}><Ionicons name={editingId ? 'create-outline' : 'flag-outline'} size={21} color={COLORS.brand} /></View>
+              <View style={styles.formIcon}><Icon name={editingId ? 'create-outline' : 'flag-outline'} size={21} color={COLORS.brand} /></View>
               <View style={styles.flex}><Text style={styles.cardTitle}>{editingId ? 'Update activity' : 'Log what happened'}</Text><Text style={styles.cardSubtitle}>Partial and not today are both useful entries.</Text></View>
             </View>
 
@@ -271,9 +271,9 @@ export default function MovementScreen({ navigation, route }) {
               <View style={styles.statusList} accessibilityRole='radiogroup'>
                 {STATUSES.map((item) => (
                   <Pressable key={item.id} onPress={() => setStatus(item.id)} accessibilityRole='radio' accessibilityState={{ checked: status === item.id }} style={({ pressed, hovered, focused }) => [styles.statusOption, status === item.id && styles.statusOptionSelected, hovered && styles.optionHovered, focused && styles.focusedControl, pressed && styles.pressed]}>
-                    <Ionicons name={item.icon} size={20} color={status === item.id ? COLORS.brand : COLORS.muted} />
+                    <Icon name={item.icon} size={20} color={status === item.id ? COLORS.brand : COLORS.muted} />
                     <Text style={[styles.statusText, status === item.id && styles.statusTextSelected]}>{item.label}</Text>
-                    <Ionicons name={status === item.id ? 'checkmark-circle' : 'ellipse-outline'} size={20} color={status === item.id ? COLORS.brand : COLORS.hairline} />
+                    <Icon name={status === item.id ? 'checkmark-circle' : 'ellipse-outline'} size={20} color={status === item.id ? COLORS.brand : COLORS.hairline} />
                   </Pressable>
                 ))}
               </View>
@@ -284,7 +284,7 @@ export default function MovementScreen({ navigation, route }) {
               <TextInput value={notes} onChangeText={setNotes} placeholder='How it felt, what helped, or why today was a rest day' placeholderTextColor={COLORS.muted} style={[styles.input, styles.notesInput]} multiline maxLength={180} textAlignVertical='top' accessibilityLabel='Optional activity note' />
             </View>
 
-            <View style={styles.reassurance}><Ionicons name='heart-outline' size={18} color={COLORS.sage} /><Text style={styles.reassuranceText}>{statusMessage(status)}</Text></View>
+            <View style={styles.reassurance}><Icon name='heart-outline' size={18} color={COLORS.sage} /><Text style={styles.reassuranceText}>{statusMessage(status)}</Text></View>
             <Button title={editingId ? 'Save changes' : 'Save activity'} icon='checkmark-circle-outline' onPress={handleSave} disabled={!activityId || (activityId === 'custom' && !customName.trim())} loading={saving} />
             {editingId ? <Button title='Cancel edit' variant='ghost' onPress={() => { resetForm(); setNotice(null); }} style={styles.cancelButton} /> : null}
           </Card>
@@ -294,7 +294,7 @@ export default function MovementScreen({ navigation, route }) {
             <Text style={styles.sectionSubtitle}>{selectedDateEntries.length} on this date / {history.length} total</Text>
             {history.length === 0 ? (
               <Card variant='cream' style={styles.emptyCard}>
-                <View style={styles.emptyIcon}><Ionicons name='walk-outline' size={25} color={COLORS.brand} /></View>
+                <View style={styles.emptyIcon}><Icon name='walk-outline' size={25} color={COLORS.brand} /></View>
                 <Text style={styles.emptyTitle}>Nothing logged yet</Text>
                 <Text style={styles.emptyText}>Choose a suggestion, your own activity, or a rest day. Each one adds useful context.</Text>
               </Card>
@@ -319,9 +319,9 @@ export default function MovementScreen({ navigation, route }) {
 function ActivityOption({ activity, selected, recommended, last, onPress }) {
   return (
     <Pressable onPress={onPress} accessibilityRole='radio' accessibilityState={{ checked: selected }} accessibilityLabel={`${activity.label}${recommended ? ', suggested' : ''}`} style={({ pressed, hovered, focused }) => [styles.activityOption, !last && styles.activityOptionDivider, selected && styles.activityOptionSelected, hovered && styles.optionHovered, focused && styles.focusedRow, pressed && styles.pressed]}>
-      <View style={[styles.activityIcon, activity.tone === 'sage' && styles.activityIconSage]}><Ionicons name={activity.icon} size={20} color={activity.tone === 'sage' ? COLORS.sage : COLORS.brand} /></View>
+      <View style={[styles.activityIcon, activity.tone === 'sage' && styles.activityIconSage]}><Icon name={activity.icon} size={20} color={activity.tone === 'sage' ? COLORS.sage : COLORS.brand} /></View>
       <View style={styles.flex}><Text style={[styles.activityLabel, selected && styles.activityLabelSelected]}>{activity.label}</Text>{recommended ? <Text style={styles.recommendedLabel}>Suggested from your check-in</Text> : null}</View>
-      <Ionicons name={selected ? 'checkmark-circle' : 'ellipse-outline'} size={21} color={selected ? COLORS.brand : COLORS.hairline} />
+      <Icon name={selected ? 'checkmark-circle' : 'ellipse-outline'} size={21} color={selected ? COLORS.brand : COLORS.hairline} />
     </Pressable>
   );
 }
@@ -331,7 +331,7 @@ function ChoiceChip({ label, selected, onPress }) {
 }
 
 function BackButton({ onPress }) {
-  return <Pressable onPress={onPress} accessibilityRole='button' accessibilityLabel='Go back' style={({ pressed, hovered, focused }) => [styles.backButton, hovered && styles.backButtonHovered, focused && styles.backButtonFocused, pressed && styles.pressed]}><Ionicons name='chevron-back' size={20} color={COLORS.ink} /><Text style={styles.backText}>Back</Text></Pressable>;
+  return <Pressable onPress={onPress} accessibilityRole='button' accessibilityLabel='Go back' style={({ pressed, hovered, focused }) => [styles.backButton, hovered && styles.backButtonHovered, focused && styles.backButtonFocused, pressed && styles.pressed]}><Icon name='chevron-back' size={20} color={COLORS.ink} /><Text style={styles.backText}>Back</Text></Pressable>;
 }
 
 function MovementHistoryCard({ entry, confirming, onEdit, onDelete, onCancelDelete, onConfirmDelete }) {
@@ -340,9 +340,9 @@ function MovementHistoryCard({ entry, confirming, onEdit, onDelete, onCancelDele
   return (
     <View style={styles.historyCard}>
       <View style={styles.historyTop}>
-        <View style={styles.historyIcon}><Ionicons name={activity.icon} size={20} color={COLORS.brand} /></View>
+        <View style={styles.historyIcon}><Icon name={activity.icon} size={20} color={COLORS.brand} /></View>
         <View style={styles.flex}><Text style={styles.historyName}>{movementLabel(entry)}</Text><Text style={styles.historyMeta}>{dateLabel(entry.date)}{numeric(entry.duration) ? ` / ${entry.duration} min` : ''}</Text></View>
-        <View style={[styles.statusBadge, entry.status === 'not_today' && styles.statusBadgeMuted]}><Ionicons name={status.icon} size={14} color={entry.status === 'not_today' ? COLORS.muted : COLORS.sage} /><Text style={[styles.statusBadgeText, entry.status === 'not_today' && styles.statusBadgeTextMuted]}>{status.label}</Text></View>
+        <View style={[styles.statusBadge, entry.status === 'not_today' && styles.statusBadgeMuted]}><Icon name={status.icon} size={14} color={entry.status === 'not_today' ? COLORS.muted : COLORS.sage} /><Text style={[styles.statusBadgeText, entry.status === 'not_today' && styles.statusBadgeTextMuted]}>{status.label}</Text></View>
       </View>
       {entry.notes ? <Text style={styles.historyNotes}>{entry.notes}</Text> : null}
       {confirming ? (
@@ -353,7 +353,7 @@ function MovementHistoryCard({ entry, confirming, onEdit, onDelete, onCancelDele
 }
 
 function ActionButton({ label, icon, danger, onPress }) {
-  return <Pressable onPress={onPress} accessibilityRole='button' accessibilityLabel={label} style={({ pressed, hovered, focused }) => [styles.actionButton, hovered && styles.actionButtonHovered, focused && styles.actionButtonFocused, pressed && styles.pressed]}>{icon ? <Ionicons name={icon} size={16} color={danger ? COLORS.error : COLORS.body} /> : null}<Text style={[styles.actionText, danger && styles.dangerText]}>{label}</Text></Pressable>;
+  return <Pressable onPress={onPress} accessibilityRole='button' accessibilityLabel={label} style={({ pressed, hovered, focused }) => [styles.actionButton, hovered && styles.actionButtonHovered, focused && styles.actionButtonFocused, pressed && styles.pressed]}>{icon ? <Icon name={icon} size={16} color={danger ? COLORS.error : COLORS.body} /> : null}<Text style={[styles.actionText, danger && styles.dangerText]}>{label}</Text></Pressable>;
 }
 
 const styles = createThemedStyles({

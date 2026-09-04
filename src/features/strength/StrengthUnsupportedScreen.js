@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import Icon from '../../components/Icon';
 import Button from '../../components/Button';
 import { COLORS, createThemedStyles, LAYOUT } from '../../utils/constants';
 import { EXERCISE_COPY, STRENGTH_COPY, STRENGTH_DEFAULTS } from './constants';
@@ -17,9 +17,9 @@ function ExerciseChoices({ onSelect }) {
     <View style={styles.list} accessibilityRole='list'>
       {Object.entries(EXERCISE_COPY).map(([id, item]) => (
         <Pressable key={id} onPress={() => onSelect(id)} accessibilityRole='button' accessibilityLabel={`${item.name}, ${STRENGTH_DEFAULTS.targetReps} repetitions`} style={({ pressed, focused }) => [styles.option, focused && styles.focused, pressed && styles.pressed]}>
-          <View style={styles.optionIcon}><Ionicons name={item.icon} size={24} color={COLORS.brand} /></View>
+          <View style={styles.optionIcon}><Icon name={item.icon} size={24} color={COLORS.brand} /></View>
           <View style={styles.flex}><Text style={styles.optionText}>{item.name}</Text><Text style={styles.optionMeta}>{STRENGTH_DEFAULTS.targetReps} reps · Camera-free</Text></View>
-          <Ionicons name='chevron-forward' size={18} color={COLORS.muted} />
+          <Icon name='chevron-forward' size={18} color={COLORS.muted} />
         </Pressable>
       ))}
     </View>
@@ -30,7 +30,7 @@ function MovementGuide({ exercise }) {
   return (
     <View style={styles.movementGuide} accessibilityLabel={`${exercise.name} movement guide`}>
       <Text style={styles.guideLabel}>{exercise.name.toUpperCase()} FORM</Text>
-      <View style={styles.guideIcon}><Ionicons name={exercise.icon} size={82} color={COLORS.sage} /></View>
+      <View style={styles.guideIcon}><Icon name={exercise.icon} size={82} color={COLORS.sage} /></View>
       <Text style={styles.guideCaption}>{exercise.steps[1]}</Text>
     </View>
   );
@@ -53,7 +53,7 @@ export default function StrengthUnsupportedScreen({ onBack, embedded = false, in
         <MovementGuide exercise={exercise} />
         <View style={styles.countRow}><Text style={styles.count}>{count}</Text><Text style={styles.countLabel}>/ {STRENGTH_DEFAULTS.targetReps} reps</Text></View>
         <Pressable accessibilityRole='button' accessibilityLabel='Count one repetition' onPress={() => setCount((value) => Math.min(STRENGTH_DEFAULTS.targetReps, value + 1))} style={({ pressed, focused }) => [styles.countButton, focused && styles.focused, pressed && styles.pressed]}>
-          <Ionicons name='add' size={34} color={COLORS.ink} />
+          <Icon name='add' size={34} color={COLORS.ink} />
         </Pressable>
         <View style={styles.actionRow}>
           <Button title='Skip' variant='secondary' onPress={reset} style={styles.actionButton} />
@@ -64,10 +64,10 @@ export default function StrengthUnsupportedScreen({ onBack, embedded = false, in
   } else if (phase === 'ready') {
     content = (
       <View style={styles.ready}>
-        <View style={styles.cameraFreeIcon}><Ionicons name='videocam-off-outline' size={26} color={COLORS.brand} /></View>
+        <View style={styles.cameraFreeIcon}><Icon name='videocam-off-outline' size={26} color={COLORS.brand} /></View>
         <Text style={styles.title}>Ready for {READY_NAMES[exerciseId] || 'your set'}?</Text>
         <View style={styles.readyMeta}><Text style={styles.readyMetaText}>{STRENGTH_DEFAULTS.targetReps} reps</Text><Text style={styles.readyMetaDot}>·</Text><Text style={styles.readyMetaText}>Camera-free</Text></View>
-        <View style={styles.readyCard}>{exercise.steps.map((step) => <View key={step} style={styles.readyStep}><Ionicons name='checkmark-circle-outline' size={19} color={COLORS.sage} /><Text style={styles.readyStepText}>{step}</Text></View>)}</View>
+        <View style={styles.readyCard}>{exercise.steps.map((step) => <View key={step} style={styles.readyStep}><Icon name='checkmark-circle-outline' size={19} color={COLORS.sage} /><Text style={styles.readyStepText}>{step}</Text></View>)}</View>
         <Button title='Start guided set' accessibilityHint='Starts the camera-free repetition counter' onPress={() => setPhase('active')} style={styles.primary} />
         <Button title='Choose another exercise' variant='secondary' onPress={() => setPhase('select')} style={styles.secondary} />
       </View>
@@ -77,7 +77,7 @@ export default function StrengthUnsupportedScreen({ onBack, embedded = false, in
       <View>
         <View style={styles.hero}><Text style={styles.title}>Move at home</Text><Text style={styles.body}>Follow calm, camera-free guidance and count each repetition yourself.</Text></View>
         <ExerciseChoices onSelect={(id) => { setExerciseId(id); setCount(0); setPhase('ready'); }} />
-        <View style={styles.privacyNote}><Ionicons name='shield-checkmark-outline' size={20} color={COLORS.sage} /><Text style={styles.privacyText}>{STRENGTH_COPY.unsupportedBody}</Text></View>
+        <View style={styles.privacyNote}><Icon name='shield-checkmark-outline' size={20} color={COLORS.sage} /><Text style={styles.privacyText}>{STRENGTH_COPY.unsupportedBody}</Text></View>
         {onBack ? <Button title='Back' variant='ghost' onPress={onBack} style={styles.secondary} /> : null}
       </View>
     );
@@ -87,7 +87,7 @@ export default function StrengthUnsupportedScreen({ onBack, embedded = false, in
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator>
-        <View style={styles.header}><View style={styles.headerSide} /><Text style={styles.wordmark}>Strength</Text><View style={styles.headerSide}><Ionicons name='videocam-off-outline' size={20} color={COLORS.brand} /></View></View>
+        <View style={styles.header}><View style={styles.headerSide} /><Text style={styles.wordmark}>Strength</Text><View style={styles.headerSide}><Icon name='videocam-off-outline' size={20} color={COLORS.brand} /></View></View>
         {content}
       </ScrollView>
     </SafeAreaView>

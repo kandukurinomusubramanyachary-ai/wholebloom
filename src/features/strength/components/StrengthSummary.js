@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Icon from '../../../components/Icon';
 import Button from '../../../components/Button';
 import { COLORS, createThemedStyles } from '../../../utils/constants';
 import { EXERCISE_COPY } from '../constants';
@@ -21,7 +21,7 @@ export default function StrengthSummary({ summary, observation, focus, synced, o
   const completed = summary.completionState === 'completed';
   return (
     <View style={styles.wrap}>
-      <View style={styles.mark}><Ionicons name={completed ? 'checkmark-circle-outline' : 'bookmark-outline'} size={38} color={COLORS.brand} /></View>
+      <View style={styles.mark}><Icon name={completed ? 'checkmark-circle-outline' : 'bookmark-outline'} size={38} color={COLORS.brand} /></View>
       <Text style={styles.title}>{completed ? 'Session Complete' : 'Session Saved'}</Text>
       <Text style={styles.subtitle}>{completed ? 'Great work today.' : 'Your movement still counts.'}</Text>
 
@@ -32,12 +32,12 @@ export default function StrengthSummary({ summary, observation, focus, synced, o
 
       <View style={styles.insights}>
         <View style={styles.insightCard}>
-          <Ionicons name='analytics-outline' size={20} color={COLORS.brand} />
+          <Icon name='analytics-outline' size={20} color={COLORS.brand} />
           <View style={styles.flex}><Text style={styles.insightTitle}>Observation</Text><Text style={styles.insightBody}>{observation}</Text></View>
         </View>
         {focus ? (
           <View style={styles.insightCard}>
-            <Ionicons name='bulb-outline' size={20} color={COLORS.brand} />
+            <Icon name='bulb-outline' size={20} color={COLORS.brand} />
             <View style={styles.flex}><Text style={styles.insightTitle}>Focus Tip</Text><Text style={styles.insightBody}>{focus}</Text></View>
           </View>
         ) : null}
