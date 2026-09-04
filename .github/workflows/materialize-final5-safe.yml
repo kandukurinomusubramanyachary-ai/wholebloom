@@ -1,0 +1,57 @@
+name: Recover Valid Final5 Prefix
+
+on:
+  push:
+    branches:
+      - tmp/materialize-bloom-final5
+
+permissions:
+  contents: write
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout payload branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Rebuild recoverable Final5 patch
+        shell: bash
+        run: |
+          python - <<'PY'
+          import base64, pathlib, re
+          parts = sorted(pathlib.Path('.new-bloom-patch').glob('part-*'))
+          raw = b''.join(re.sub(rb'\s+', b'', p.read_bytes()) for p in parts)
+          clean = re.sub(rb'[^A-Za-z0-9+/=]', b'', raw)
+          clean += b'=' * ((4 - len(clean) % 4) % 4)
+          pathlib.Path('/tmp/final5.patch.xz').write_bytes(base64.b64decode(clean, validate=False))
+          PY
+          set +e
+          xz -dc /tmp/final5.patch.xz > /tmp/final5.partial.patch 2>/tmp/xz.err
+          set -e
+          python - <<'PY'
+          from pathlib import Path
+          data = Path('/tmp/final5.partial.patch').read_bytes()
+          marker = b'diff --git a/src/services/devSampleData.js b/src/services/devSampleData.js\n'
+          pos = data.find(marker)
+          if pos < 0:
+              raise SystemExit('devSampleData boundary not found; refusing recovery')
+          prefix = data[:pos]
+          Path('/tmp/final5.valid.patch').write_bytes(prefix)
+          print('partial_bytes=', len(data), 'valid_prefix_bytes=', len(prefix))
+          print('valid_diffs=', prefix.count(b'diff --git '))
+          PY
+
+      - name: Apply valid Final5 UI prefix to exact Meg V2 base
+        shell: bash
+        run: |
+          git checkout --detach 217485f6701366f3cd4307d202e6c635d69021fb
+          git apply --check /tmp/final5.valid.patch
+          git apply --index /tmp/final5.valid.patch
+          git config user.name "Bloom Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git commit -m "feat: recover valid Bloom Final5 Koboyo UI"
+          git push --force origin HEAD:refs/heads/tmp/bloom-final5-recovered

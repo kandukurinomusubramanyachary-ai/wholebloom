@@ -1,0 +1,54 @@
+name: Promote New Bloom
+
+on:
+  push:
+    branches:
+      - staging/new-bloom-final5
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout staging payload
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check ready marker
+        id: ready
+        shell: bash
+        run: |
+          if [ -f .new-bloom-patch/READY ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Rebuild and verify patch
+        if: steps.ready.outputs.ready == 'true'
+        shell: bash
+        run: |
+          cat .new-bloom-patch/part-* > /tmp/new-bloom.patch.xz.b64
+          base64 -di /tmp/new-bloom.patch.xz.b64 > /tmp/new-bloom.patch.xz
+          echo "fcc53d1855caa2f0ca48c43ffc5616461c78632c116bf8bdf9e437ac7be942e7  /tmp/new-bloom.patch.xz" | sha256sum -c -
+
+      - name: Apply New Bloom on cleaned Meg V2
+        if: steps.ready.outputs.ready == 'true'
+        shell: bash
+        run: |
+          git checkout --detach 217485f6701366f3cd4307d202e6c635d69021fb
+          xz -dc /tmp/new-bloom.patch.xz | git apply --index -
+          git status --short
+
+      - name: Commit and push main
+        if: steps.ready.outputs.ready == 'true'
+        shell: bash
+        run: |
+          git config user.name "Bloom Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git commit -m "feat: apply new Bloom screens and Strength baseline"
+          git push origin HEAD:main

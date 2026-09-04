@@ -1,7 +1,5 @@
-require('./megBackend.test');
-require('./megContext.test');
+require('./megV2Bridge.test');
 require('./megClient.test');
-require('./megQaTiming.test');
 require('./megUrlPolicy.test');
 require('./megLocalQueue.test');
 require('./megReveal.test');
