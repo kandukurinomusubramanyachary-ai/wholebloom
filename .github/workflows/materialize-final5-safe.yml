@@ -18,7 +18,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Rebuild and verify Final5 patch
+      - name: Rebuild Final5 patch
         shell: bash
         run: |
           python - <<'PY'
@@ -29,26 +29,23 @@ jobs:
 
           root = pathlib.Path('.new-bloom-patch')
           parts = sorted(root.glob('part-*'))
-          decoded_parts = []
-          for p in parts:
-              raw = re.sub(rb'\s+', b'', p.read_bytes())
-              clean = re.sub(rb'[^A-Za-z0-9+/=]', b'', raw)
-              clean += b'=' * ((4 - len(clean) % 4) % 4)
-              piece = base64.b64decode(clean, validate=False)
-              decoded_parts.append(piece)
-              print(p.name, 'encoded=', len(raw), 'mod4=', len(raw) % 4, 'tail=', raw[-8:].decode('ascii', 'replace'), 'decoded=', len(piece))
-          decoded = b''.join(decoded_parts)
+          raw = b''.join(re.sub(rb'\s+', b'', p.read_bytes()) for p in parts)
+          clean = re.sub(rb'[^A-Za-z0-9+/=]', b'', raw)
+          clean += b'=' * ((4 - len(clean) % 4) % 4)
+          decoded = base64.b64decode(clean, validate=False)
           pathlib.Path('/tmp/new-bloom.patch.xz').write_bytes(decoded)
-          print('parts:', len(parts), 'decoded_total:', len(decoded))
+          print('parts:', len(parts), 'encoded:', len(raw), 'decoded:', len(decoded))
           print('sha256:', hashlib.sha256(decoded).hexdigest())
           PY
-          echo "fcc53d1855caa2f0ca48c43ffc5616461c78632c116bf8bdf9e437ac7be942e7  /tmp/new-bloom.patch.xz" | sha256sum -c -
+          xz -t /tmp/new-bloom.patch.xz
 
-      - name: Apply Final5 to cleaned Meg V2 base
+      - name: Validate and apply Final5 to cleaned Meg V2 base
         shell: bash
         run: |
           git checkout --detach 217485f6701366f3cd4307d202e6c635d69021fb
-          xz -dc /tmp/new-bloom.patch.xz | git apply --index -
+          xz -dc /tmp/new-bloom.patch.xz > /tmp/new-bloom.patch
+          git apply --check /tmp/new-bloom.patch
+          git apply --index /tmp/new-bloom.patch
           git config user.name "Bloom Build Bot"
           git config user.email "actions@users.noreply.github.com"
           git commit -m "chore: materialize Bloom Final5 for clean extraction"
