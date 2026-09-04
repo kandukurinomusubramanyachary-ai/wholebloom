@@ -21,8 +21,22 @@ jobs:
       - name: Rebuild and verify Final5 patch
         shell: bash
         run: |
-          cat .new-bloom-patch/part-* > /tmp/new-bloom.patch.xz.b64
-          base64 -di /tmp/new-bloom.patch.xz.b64 > /tmp/new-bloom.patch.xz
+          python - <<'PY'
+          import base64
+          import hashlib
+          import pathlib
+          import re
+
+          root = pathlib.Path('.new-bloom-patch')
+          parts = sorted(root.glob('part-*'))
+          data = b''.join(p.read_bytes() for p in parts)
+          clean = re.sub(rb'[^A-Za-z0-9+/]', b'', data)
+          clean += b'=' * ((4 - len(clean) % 4) % 4)
+          decoded = base64.b64decode(clean, validate=False)
+          pathlib.Path('/tmp/new-bloom.patch.xz').write_bytes(decoded)
+          print('parts:', len(parts), 'encoded:', len(data), 'clean:', len(clean), 'decoded:', len(decoded))
+          print('sha256:', hashlib.sha256(decoded).hexdigest())
+          PY
           echo "fcc53d1855caa2f0ca48c43ffc5616461c78632c116bf8bdf9e437ac7be942e7  /tmp/new-bloom.patch.xz" | sha256sum -c -
 
       - name: Apply Final5 to cleaned Meg V2 base
