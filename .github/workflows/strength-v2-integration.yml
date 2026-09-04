@@ -1,4 +1,4 @@
-name: Strength V2 integration verifier
+name: Materialize verified Strength V2
 
 on:
   push:
@@ -9,63 +9,109 @@ permissions:
   contents: write
 
 jobs:
-  inspect-source:
+  materialize:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Checkout integration branch
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Fetch staged Strength source
-        run: |
-          git fetch origin feat/strength-v2-final feature/strength-engine-v2-final
+      - name: Fetch frozen-core staging branch
+        run: git fetch origin feature/strength-engine-v2-final
 
-      - name: Reconstruct staged Strength source
+      - name: Reconstruct exact verified core archive
         shell: bash
         run: |
           set -euo pipefail
-          : > /tmp/strength-source.bin
-          for n in 00 01 02 03 04 05 06 07 08 09 10; do
-            git show "origin/feat/strength-v2-final:.strength-v2-source/part${n}" | base64 -d >> /tmp/strength-source.bin
+          : > /tmp/strength-core.b64
+          for n in 00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15; do
+            git show "origin/feature/strength-engine-v2-final:.strength-import/small-${n}" >> /tmp/strength-core.b64
           done
-          echo '=== SOURCE PAYLOAD ==='
-          file /tmp/strength-source.bin
-          if gzip -t /tmp/strength-source.bin 2>/dev/null; then
-            echo 'SOURCE_GZIP_OK=1'
-            tar -tzf /tmp/strength-source.bin | sed -n '1,360p'
-          else
-            echo 'SOURCE_GZIP_OK=0'
-            head -c 200 /tmp/strength-source.bin | xxd
-          fi
+          cat .integration-payload/small-16 .integration-payload/small-17 .integration-payload/small-18 >> /tmp/strength-core.b64
+          echo 'b7bdece699a70728b04c9f750453e5a4d7852e82ae4d8700678e98cbd4c0222c  /tmp/strength-core.b64' | sha256sum -c -
+          base64 -d /tmp/strength-core.b64 > /tmp/strength-core.tgz
+          echo 'cc1954432b19a29f3fece5ed07e2fae6545ab3a84dadc917a610c11283cc4e93  /tmp/strength-core.tgz' | sha256sum -c -
+          rm -rf /tmp/strength-core
+          mkdir -p /tmp/strength-core
+          tar -xzf /tmp/strength-core.tgz -C /tmp/strength-core
 
-      - name: Reconstruct large patch payload
+      - name: Replace old Strength engine/runtime with frozen V2 core
         shell: bash
         run: |
           set -euo pipefail
-          : > /tmp/new-bloom-patch.bin
-          for n in 00 01 02 03 04 05 06 07 08 09 10 11; do
-            git show "origin/feat/strength-v2-final:.new-bloom-patch/part-${n}" | base64 -d >> /tmp/new-bloom-patch.bin
-          done
-          echo '=== LARGE PATCH ==='
-          file /tmp/new-bloom-patch.bin
-          if xz -t /tmp/new-bloom-patch.bin 2>/dev/null; then
-            echo 'PATCH_XZ_OK=1'
-            xz -dc /tmp/new-bloom-patch.bin > /tmp/new-bloom-patch.dec
-            file /tmp/new-bloom-patch.dec
-            if tar -tf /tmp/new-bloom-patch.dec >/tmp/patch-list.txt 2>/dev/null; then
-              echo 'PATCH_IS_TAR=1'
-              sed -n '1,420p' /tmp/patch-list.txt
-            elif grep -q '^diff --git ' /tmp/new-bloom-patch.dec; then
-              echo 'PATCH_IS_GIT_DIFF=1'
-              grep '^diff --git ' /tmp/new-bloom-patch.dec | sed -n '1,360p'
-            else
-              echo 'Decoded payload type:'
-              file /tmp/new-bloom-patch.dec
-              head -c 1200 /tmp/new-bloom-patch.dec || true
+          src=/tmp/strength-core/strength-engine-v2/src/features/strength
+          dst=src/features/strength
+          rm -rf "$dst/engine" "$dst/services" "$dst/web" "$dst/validation"
+          rm -f "$dst/index.js" "$dst/index.web.js" "$dst/index.native.js" "$dst/strengthCopy.js" "$dst/README.md"
+          mkdir -p "$dst"
+          cp -a "$src/engine" "$dst/engine"
+          cp -a "$src/services" "$dst/services"
+          cp -a "$src/web" "$dst/web"
+          cp -a "$src/validation" "$dst/validation"
+          cp "$src/index.js" "$src/index.web.js" "$src/index.native.js" "$src/strengthCopy.js" "$src/README.md" "$dst/"
+
+      - name: Vendor exact MediaPipe 0.10.21 runtime from npm
+        shell: bash
+        run: |
+          set -euo pipefail
+          asset_dir=src/features/strength/web/assets/mediapipe/0.10.21
+          mkdir -p "$asset_dir/wasm" /tmp/mp-package
+          npm pack @mediapipe/tasks-vision@0.10.21 --pack-destination /tmp >/tmp/mp-pack-name.txt
+          pkg=$(tail -n 1 /tmp/mp-pack-name.txt | tr -d '\r')
+          tar -xzf "/tmp/${pkg}" -C /tmp/mp-package
+          cp /tmp/mp-package/package/vision_bundle.mjs "$asset_dir/vision_bundle.mjs"
+          cp /tmp/mp-package/package/wasm/vision_wasm_internal.js "$asset_dir/wasm/vision_wasm_internal.js"
+          cp /tmp/mp-package/package/wasm/vision_wasm_internal.wasm "$asset_dir/wasm/vision_wasm_internal.wasm"
+          cp /tmp/mp-package/package/wasm/vision_wasm_nosimd_internal.js "$asset_dir/wasm/vision_wasm_nosimd_internal.js"
+          cp /tmp/mp-package/package/wasm/vision_wasm_nosimd_internal.wasm "$asset_dir/wasm/vision_wasm_nosimd_internal.wasm"
+
+          echo '40f4123dfcd75cfa58add046919cc6f52fde66f009ff582997c09ba54c6ba27c  '"$asset_dir/vision_bundle.mjs" | sha256sum -c -
+          echo '4a97e2520ba506c680ecd6ba6acfb146888afa0e2746d57f205352bc6ebb82eb  '"$asset_dir/wasm/vision_wasm_internal.js" | sha256sum -c -
+          echo 'f00ec4731faa23b3e714d00e88d4d10e2df5c0a427d3a2b4ae6e3526fdd14ef7  '"$asset_dir/wasm/vision_wasm_internal.wasm" | sha256sum -c -
+          echo '927def7b465c51b86e4b3060f93646aca4e27121f4b8fc0483786e407ea9cf1f  '"$asset_dir/wasm/vision_wasm_nosimd_internal.js" | sha256sum -c -
+          echo '3821ea9b1f7fb8c549ef2a064ef5c85750bf375c545a49fd6eea0df44a95f1f4  '"$asset_dir/wasm/vision_wasm_nosimd_internal.wasm" | sha256sum -c -
+
+      - name: Vendor exact Pose Landmarker Lite model
+        shell: bash
+        run: |
+          set -euo pipefail
+          asset_dir=src/features/strength/web/assets/mediapipe/0.10.21
+          model="$asset_dir/pose_landmarker_lite.task"
+          urls=(
+            'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task'
+            'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task'
+          )
+          ok=0
+          for url in "${urls[@]}"; do
+            if curl -fsSL --retry 3 "$url" -o "$model"; then
+              hash=$(sha256sum "$model" | awk '{print $1}')
+              if [ "$hash" = '59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a' ]; then
+                ok=1
+                break
+              fi
             fi
-          else
-            echo 'PATCH_XZ_OK=0'
-            head -c 300 /tmp/new-bloom-patch.bin | xxd
+          done
+          if [ "$ok" != 1 ]; then
+            echo 'Could not acquire the exact verified pose_landmarker_lite.task.' >&2
+            exit 1
           fi
+
+      - name: Verify local asset gate
+        run: node src/features/strength/web/checkAssets.mjs
+
+      - name: Commit frozen V2 core and local assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Bloom Build Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add src/features/strength
+          if git diff --cached --quiet; then
+            echo 'Frozen Strength V2 core already materialized.'
+            exit 0
+          fi
+          git commit -m 'build: materialize verified Strength V2 core and local pose assets'
+          git push origin HEAD:integration/strength-v2-bloom
