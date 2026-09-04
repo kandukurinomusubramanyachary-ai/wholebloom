@@ -1,4 +1,4 @@
-name: Materialize Final5 Safely
+name: Inspect Recoverable Final5
 
 on:
   push:
@@ -6,51 +6,42 @@ on:
       - tmp/materialize-bloom-final5
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  materialize:
+  inspect:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout payload branch
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Rebuild Final5 patch
+      - name: Rebuild Final5 archive
         shell: bash
         run: |
           python - <<'PY'
-          import base64
-          import hashlib
-          import pathlib
-          import re
-
-          root = pathlib.Path('.new-bloom-patch')
-          parts = sorted(root.glob('part-*'))
+          import base64, hashlib, pathlib, re
+          parts = sorted(pathlib.Path('.new-bloom-patch').glob('part-*'))
           raw = b''.join(re.sub(rb'\s+', b'', p.read_bytes()) for p in parts)
           clean = re.sub(rb'[^A-Za-z0-9+/=]', b'', raw)
           clean += b'=' * ((4 - len(clean) % 4) % 4)
           decoded = base64.b64decode(clean, validate=False)
-          pathlib.Path('/tmp/new-bloom.patch.xz').write_bytes(decoded)
-          print('parts:', len(parts), 'encoded:', len(raw), 'decoded:', len(decoded))
-          print('sha256:', hashlib.sha256(decoded).hexdigest())
+          pathlib.Path('/tmp/final5.patch.xz').write_bytes(decoded)
+          print('archive-bytes', len(decoded), 'sha256', hashlib.sha256(decoded).hexdigest())
           PY
-          xz -t /tmp/new-bloom.patch.xz
 
-      - name: Validate and apply Final5 to cleaned Meg V2 base
+      - name: Inspect recoverable patch stream
         shell: bash
         run: |
-          git checkout --detach 217485f6701366f3cd4307d202e6c635d69021fb
-          xz -dc /tmp/new-bloom.patch.xz > /tmp/new-bloom.patch
-          git apply --check /tmp/new-bloom.patch
-          git apply --index /tmp/new-bloom.patch
-          git config user.name "Bloom Build Bot"
-          git config user.email "actions@users.noreply.github.com"
-          git commit -m "chore: materialize Bloom Final5 for clean extraction"
-
-      - name: Publish isolated materialized branch
-        shell: bash
-        run: |
-          git push --force origin HEAD:refs/heads/tmp/bloom-final5-materialized
+          set +e
+          xz -dc /tmp/final5.patch.xz > /tmp/final5.partial.patch 2>/tmp/xz.err
+          status=$?
+          set -e
+          echo "xz_status=$status"
+          cat /tmp/xz.err || true
+          echo "partial_bytes=$(wc -c < /tmp/final5.partial.patch)"
+          echo "partial_lines=$(wc -l < /tmp/final5.partial.patch)"
+          echo '--- recovered changed paths ---'
+          grep '^diff --git ' /tmp/final5.partial.patch | sed -E 's#diff --git a/([^ ]+) b/.*#\1#' || true
+          echo '--- patch tail ---'
+          tail -n 35 /tmp/final5.partial.patch || true
