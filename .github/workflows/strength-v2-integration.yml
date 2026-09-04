@@ -1,0 +1,62 @@
+name: Strength V2 integration verifier
+
+on:
+  push:
+    branches:
+      - integration/strength-v2-bloom
+
+permissions:
+  contents: write
+
+jobs:
+  inspect-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout integration branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch staged Strength source
+        run: |
+          git fetch origin feat/strength-v2-final feature/strength-engine-v2-final
+
+      - name: Reconstruct source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > /tmp/strength-source.b64
+          while IFS= read -r path; do
+            git show "origin/feat/strength-v2-final:${path}" >> /tmp/strength-source.b64
+          done < <(git ls-tree -r --name-only origin/feat/strength-v2-final .strength-v2-source | sort)
+          base64 -d /tmp/strength-source.b64 > /tmp/strength-source.tar.gz
+          echo '=== SOURCE ARCHIVE ==='
+          file /tmp/strength-source.tar.gz
+          tar -tzf /tmp/strength-source.tar.gz | sed -n '1,220p'
+
+      - name: Reconstruct large patch archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > /tmp/new-bloom-patch.b64
+          while IFS= read -r path; do
+            [ "${path}" = ".new-bloom-patch/READY" ] && continue
+            git show "origin/feat/strength-v2-final:${path}" >> /tmp/new-bloom-patch.b64
+          done < <(git ls-tree -r --name-only origin/feat/strength-v2-final .new-bloom-patch | sort)
+          base64 -d /tmp/new-bloom-patch.b64 > /tmp/new-bloom-patch.bin
+          echo '=== LARGE PATCH ==='
+          file /tmp/new-bloom-patch.bin
+          if xz -t /tmp/new-bloom-patch.bin 2>/dev/null; then
+            xz -dc /tmp/new-bloom-patch.bin > /tmp/new-bloom-patch.dec
+            file /tmp/new-bloom-patch.dec
+            if tar -tf /tmp/new-bloom-patch.dec >/tmp/patch-list.txt 2>/dev/null; then
+              sed -n '1,260p' /tmp/patch-list.txt
+            else
+              echo 'Decoded xz payload is not a tar archive.'
+              head -c 200 /tmp/new-bloom-patch.dec | xxd
+            fi
+          else
+            echo 'Payload is not xz; trying tar/gzip.'
+            tar -tf /tmp/new-bloom-patch.bin | sed -n '1,260p'
+          fi
