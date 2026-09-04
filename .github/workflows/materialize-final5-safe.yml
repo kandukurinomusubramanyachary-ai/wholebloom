@@ -29,12 +29,17 @@ jobs:
 
           root = pathlib.Path('.new-bloom-patch')
           parts = sorted(root.glob('part-*'))
-          data = b''.join(p.read_bytes() for p in parts)
-          clean = re.sub(rb'[^A-Za-z0-9+/]', b'', data)
-          clean += b'=' * ((4 - len(clean) % 4) % 4)
-          decoded = base64.b64decode(clean, validate=False)
+          decoded_parts = []
+          for p in parts:
+              raw = re.sub(rb'\s+', b'', p.read_bytes())
+              clean = re.sub(rb'[^A-Za-z0-9+/=]', b'', raw)
+              clean += b'=' * ((4 - len(clean) % 4) % 4)
+              piece = base64.b64decode(clean, validate=False)
+              decoded_parts.append(piece)
+              print(p.name, 'encoded=', len(raw), 'mod4=', len(raw) % 4, 'tail=', raw[-8:].decode('ascii', 'replace'), 'decoded=', len(piece))
+          decoded = b''.join(decoded_parts)
           pathlib.Path('/tmp/new-bloom.patch.xz').write_bytes(decoded)
-          print('parts:', len(parts), 'encoded:', len(data), 'clean:', len(clean), 'decoded:', len(decoded))
+          print('parts:', len(parts), 'decoded_total:', len(decoded))
           print('sha256:', hashlib.sha256(decoded).hexdigest())
           PY
           echo "fcc53d1855caa2f0ca48c43ffc5616461c78632c116bf8bdf9e437ac7be942e7  /tmp/new-bloom.patch.xz" | sha256sum -c -
