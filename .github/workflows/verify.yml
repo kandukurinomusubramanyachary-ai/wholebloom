@@ -22,12 +22,21 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            meg-engine-v2/package-lock.json
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
 
       - name: Install Bloom dependencies
         run: npm ci
 
       - name: Install Meg V2 dependencies
-        run: npm install --prefix meg-engine-v2 --no-audit --no-fund
+        run: npm ci --prefix meg-engine-v2 --no-audit --no-fund
 
       - name: Run Bloom integration tests
         run: npm test
@@ -35,8 +44,51 @@ jobs:
       - name: Run Meg V2 engine tests
         run: timeout 120s npm test --prefix meg-engine-v2 -- --test-reporter=spec
 
+      - name: Run Meg V2 deterministic benchmark
+        run: npm run benchmark --prefix meg-engine-v2
+
+      - name: Run Firestore rules tests
+        run: npm run test:rules
+
       - name: Typecheck
         run: npm run typecheck
 
       - name: Build web
         run: npm run build:web
+
+      - name: Build production container
+        run: docker build -t wholebloom:verify .
+
+      - name: Smoke-test production container
+        shell: bash
+        run: |
+          docker run -d --name wholebloom-verify -p 18080:8080 \
+            -e CORS_ALLOWED_ORIGINS=https://bloom-ci.invalid \
+            -e BUILD_VERSION=ci \
+            wholebloom:verify
+          cleanup() {
+            docker logs wholebloom-verify || true
+            docker rm -f wholebloom-verify >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          health=""
+          for attempt in {1..20}; do
+            if health="$(curl --fail --silent --show-error http://127.0.0.1:18080/health 2>/dev/null)"; then
+              break
+            fi
+            sleep 1
+          done
+
+          if [ -z "$health" ]; then
+            echo "Production container did not become healthy." >&2
+            exit 1
+          fi
+
+          node -e '
+            const health = JSON.parse(process.argv[1]);
+            if (health.ok !== true || health.provider !== "meg-v2") {
+              console.error("Unexpected health payload", health);
+              process.exit(1);
+            }
+          ' "$health"

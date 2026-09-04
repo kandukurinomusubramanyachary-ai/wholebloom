@@ -2,7 +2,12 @@ const assert = require('node:assert/strict');
 const { once } = require('node:events');
 const test = require('node:test');
 const { createApp } = require('./index');
-const { createMegV2Bridge, mapBloomContext, routeModeForSupportMode } = require('./megV2Bridge');
+const {
+  createMegV2Bridge,
+  buildMegV2Environment,
+  mapBloomContext,
+  routeModeForSupportMode,
+} = require('./megV2Bridge');
 const { InMemoryBackend } = require('../meg-engine-v2/src/memory/memoryStore');
 
 const silentLogger = { info() {}, warn() {}, error() {} };
@@ -52,6 +57,19 @@ test('Bloom support modes choose sensible V2 routing without exposing provider s
   assert.equal(routeModeForSupportMode('conversation'), 'smart');
   assert.equal(routeModeForSupportMode('doctor'), 'doctor');
   assert.equal(routeModeForSupportMode('unknown'), 'auto');
+});
+
+test('Meg V2 requires explicitly configured durable storage in production', () => {
+  assert.throws(
+    () => buildMegV2Environment({ NODE_ENV: 'production' }),
+    /MEG_V2_DATA_DIR is required in production/
+  );
+
+  const environment = buildMegV2Environment({
+    NODE_ENV: 'production',
+    MEG_V2_DATA_DIR: '/var/lib/bloom/meg-v2',
+  });
+  assert.equal(environment.DATA_DIR, '/var/lib/bloom/meg-v2');
 });
 
 test('Meg V2 bridge runs the real V2 prompt/routing pipeline with Bloom support mode and history', async () => {

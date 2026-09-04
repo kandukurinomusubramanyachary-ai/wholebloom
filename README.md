@@ -1,9 +1,9 @@
 # Bloom
 
 Bloom 1.1.0 is a private, cross-platform Expo beta for cycle, symptom, food,
-movement, and wellbeing tracking. It is designed for people with PCOS, PCOD,
-or irregular cycles, while remaining useful for anyone who wants a gentler way
-to notice patterns in their body.
+movement, strength, and wellbeing tracking. It is designed for people with
+PCOS, PCOD, or irregular cycles while remaining useful for anyone who wants a
+gentler way to notice patterns in their body.
 
 Bloom runs on Android, iPhone, and the web from one Expo/React Native codebase.
 It is not a medical device and does not diagnose, predict a condition, or
@@ -11,69 +11,92 @@ replace advice from a qualified healthcare professional.
 
 ## What is in the beta
 
-The main navigation has exactly five tabs:
+The main navigation has five tabs:
 
 - **Today** - daily check-in, cycle summary, and quick access to common logs.
-- **Timeline** - period history, calendar views, and estimates based on the
-  cycle starts the user has logged. Period entries can be added, edited, and
-  deleted.
-- **Meg** - Bloom's supportive chat experience. Sending a message requires a
-  signed-in Firebase user and a deployed Meg API that verifies the Firebase ID
-  token.
-- **Insights** - careful observations from the user's own entries. The
-  educational **Learn** library is a section inside Insights, not a separate
-  bottom tab.
-- **Diet** - optional preferences, ingredient search and free-text ingredients,
-  three practical meal ideas, saved ideas, meal logging, after-meal reflection,
-  history, and non-causal observations.
+- **Timeline** - period history, calendar views, and estimates based on logged
+  cycle starts. Period entries can be added, edited, and deleted.
+- **Meg** - Bloom's supportive chat experience. Meg uses Meg Engine V2 only.
+  Messages are sent through Bloom's Firebase-authenticated `/api/meg/chat`
+  endpoint; provider keys are never exposed to the client.
+- **Strength** - an isolated movement feature under `src/features/strength/`.
+  Its web pose model, JavaScript bundle, and WASM runtime live under
+  `public/strength/` and are loaded at runtime.
+- **Diet** - optional preferences, meal ideas, saved ideas, meal logging,
+  after-meal reflection, history, and non-causal observations.
 
-Profile is a stack/settings screen reached from the app content. It is not a
-sixth bottom tab. It contains preferences, reminders, privacy controls, export,
-and account actions.
+Profile is a stack/settings screen reached from the app content. It contains
+preferences, reminders, privacy controls, export, and account actions.
 
-Other beta capabilities include daily symptom and mood check-ins, movement and
-food logs, cycle estimates that tolerate irregular history, educational
-articles, data export, optional biometric or PIN app lock, reminder settings,
-and startup diagnostics for recoverable configuration failures.
+## Meg architecture
+
+Meg V1 has been removed from the active backend. There is no V1 runtime fallback.
+
+```text
+Bloom Meg UI
+   ↓ Firebase ID token
+POST /api/meg/chat
+   ↓ verified UID + allowlisted Bloom context
+server/megV2Bridge.js
+   ↓ in-process call
+meg-engine-v2
+   ↓
+Gemini / Groq / OpenRouter
+```
+
+The public API contract remains stable for the app. `server/index.js` and
+`server/firebaseAuth.js` remain Bloom's security boundary: Firebase verifies the
+caller, the server derives the trusted user ID, CORS is enforced, and only
+allowlisted Bloom context is mapped into Meg Engine V2.
+
+The standalone Meg V2 `/v2/chat` SSE transport remains available for engine
+verification and possible future service separation, but Bloom production uses
+the in-process bridge.
+
+Meg V2 provides deterministic routing, support-mode instructions, safety checks,
+response guards, conversation memory, idempotency, caching, provider fallback,
+bounded retries, circuit breaking, and telemetry.
 
 ## Data behaviour
 
 - Firebase Email/Password Authentication provides the account boundary.
 - Cycle starts and daily check-ins are stored in owner-scoped Firestore paths.
-  Cycle estimates are calculated in the app from the user's logged history;
-  they are estimates, not medical predictions.
-- Diet is local-first. Meals, reflections, preferences, saved ideas, and
-  deletion markers are written to UID-scoped device storage first, so the core
-  Diet workflow remains usable when the Diet cloud sync or Meg service is
-  unavailable. Bloom then performs best-effort owner-scoped Firestore sync.
-- Failed Meg sends are retained in a UID-scoped device queue for explicit retry.
-  The Meg backend remains the source of truth for delivered conversations and
-  accepts only authenticated requests with a valid Firebase ID token.
-- Device data is namespaced by Firebase UID so signing into another account
-  does not reuse the previous account's local preferences or queued messages.
-- Educational content and generated observations use supportive,
-  non-diagnostic language. The repository does not claim clinical or medical
-  review of that content.
+  Cycle estimates are calculated from logged history and remain estimates, not
+  medical predictions.
+- Diet remains local-first and owner-scoped. It is intentionally not part of the
+  Meg V1-to-V2 cleanup.
+- Failed Meg sends remain in a UID-scoped device retry queue. Delivered Meg
+  conversations and V2 memory are handled by the authenticated backend.
+- Meg V2 uses SQLite persistence by default. Production must point
+  `MEG_V2_DATA_DIR` at storage that survives process restarts and deployment
+  replacement. The provided container uses `/var/lib/bloom/meg-v2` and declares
+  that path as a volume; the hosting platform must attach genuinely persistent
+  storage there.
+- Device data is namespaced by Firebase UID so signing into another account does
+  not reuse the previous account's local preferences or queued messages.
+- Strength storage and analytics must contain only the allowlisted workout
+  summary. Camera frames and pose landmarks are not persisted.
 
 ## Technology
 
 - Expo SDK 51 and React Native 0.74
 - React 18 and React Navigation 6
-- Firebase Authentication, Cloud Firestore, and Firebase Admin on the backend
+- Firebase Authentication, Cloud Firestore, and Firebase Admin
 - AsyncStorage for UID-scoped device data
-- Express for the Meg API
+- Express for Bloom's authenticated backend
+- Meg Engine V2 for AI orchestration
+- SQLite through `better-sqlite3` for Meg V2 persistence
+- Gemini, Groq, and OpenRouter provider adapters
+- MediaPipe-compatible Strength web runtime assets under `public/strength/`
 - date-fns for local date and cycle calculations
-- Expo modules for notifications, local authentication, screen capture, file
-  export, sharing, clipboard, and splash handling
 
 ## Requirements
 
-- Node.js 20 or newer
+- Node.js 22 recommended for local and production parity
 - npm
 - Android Studio for an Android emulator, or Xcode on macOS for an iOS simulator
 - Access to Bloom's existing Firebase Web App configuration
-- For Meg: either the local Ollama provider or the configured production
-  provider and backend credentials
+- At least one Meg V2 provider key: Gemini, Groq, or OpenRouter
 
 No global Expo CLI installation is needed. Use the project-local CLI through
 `npx` or the npm scripts below.
@@ -81,27 +104,37 @@ No global Expo CLI installation is needed. Use the project-local CLI through
 ## Local setup
 
 ```bash
-cd bloom
-npm install
+npm ci
+npm ci --prefix meg-engine-v2
 ```
 
-Create an ignored `.env` file from `.env.example`:
+Create an ignored `.env` from `.env.example` and fill in the six public Firebase
+Web App values. These identify the Firebase client app; they are not Firebase
+Admin credentials.
 
-```powershell
-Copy-Item .env.example .env
+For Meg V2, configure at least one server-side provider key:
+
+```dotenv
+GEMINI_API_KEY=
+GROQ_API_KEY=
+OPENROUTER_API_KEY=
 ```
 
-On macOS or Linux:
+One key is enough. Adding more enables automatic provider fallback.
+
+For local app development, the example backend URL is:
+
+```dotenv
+EXPO_PUBLIC_MEG_API_URL=http://127.0.0.1:3001
+```
+
+Start the Bloom backend:
 
 ```bash
-cp .env.example .env
+npm run server
 ```
 
-Fill in the six public Firebase Web App values. These identify the Firebase
-client app; they are not Firebase Admin credentials. For local Meg development,
-the example uses `http://127.0.0.1:3001`.
-
-Start Expo:
+Start Expo in another terminal:
 
 ```bash
 npx expo start
@@ -115,37 +148,15 @@ npm run ios
 npm run web
 ```
 
-The iOS command requires macOS and Xcode. A physical phone cannot reach a
-server running at its own `127.0.0.1`; for local device testing, set
-`EXPO_PUBLIC_MEG_API_URL` to the development computer's reachable LAN address.
-Preview and production builds must use a public HTTPS Meg API URL.
-
-## Local Meg backend
-
-The default development provider is Ollama at `http://127.0.0.1:11434`, using
-the model configured by `OLLAMA_MODEL` in `.env`.
-
-With Ollama running, start the Bloom API in a second terminal:
-
-```bash
-npm run server
-```
-
-Check the unauthenticated health endpoint:
-
-```bash
-curl http://127.0.0.1:3001/health
-```
-
-Meg message routes still require a valid Firebase ID token. The backend does
-not accept a UID supplied by the client as proof of identity.
+A physical phone cannot reach a server running at its own `127.0.0.1`; use the
+development computer's reachable LAN address for device testing. Preview and
+production builds must use a public HTTPS Bloom backend URL.
 
 ## Configuration
 
 Everything named `EXPO_PUBLIC_*` is embedded in the application bundle and is
 readable by users. Never place Firebase Admin credentials, service-account JSON,
-AI provider keys, or other secrets in an `EXPO_PUBLIC_*` value, `app.json`,
-`app.config.js`, or `eas.json`.
+AI provider keys, or other secrets in an `EXPO_PUBLIC_*` value.
 
 ### Frontend variables
 
@@ -153,11 +164,12 @@ AI provider keys, or other secrets in an `EXPO_PUBLIC_*` value, `app.json`,
 | --- | --- |
 | `EXPO_PUBLIC_FIREBASE_API_KEY` | Firebase Web App API key |
 | `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN` | Firebase Auth domain |
-| `EXPO_PUBLIC_FIREBASE_PROJECT_ID` | Existing Firebase project ID |
+| `EXPO_PUBLIC_FIREBASE_PROJECT_ID` | Firebase project ID |
 | `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET` | Firebase storage bucket identifier |
 | `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Firebase sender ID |
 | `EXPO_PUBLIC_FIREBASE_APP_ID` | Firebase Web App ID |
-| `EXPO_PUBLIC_MEG_API_URL` | Meg API origin; public HTTPS outside local development |
+| `EXPO_PUBLIC_MEG_API_URL` | Bloom backend origin; public HTTPS outside local development |
+| `EXPO_PUBLIC_BLOOM_STRENGTH` | Strength feature flag |
 
 ### Backend variables
 
@@ -166,116 +178,101 @@ AI provider keys, or other secrets in an `EXPO_PUBLIC_*` value, `app.json`,
 | `FIREBASE_PROJECT_ID` | Optional Firebase Admin project override |
 | `FIREBASE_SERVICE_ACCOUNT_JSON` | Secret base64 service-account JSON; use a secret manager |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Alternative ADC credential path outside the repository |
-| `MEG_PROVIDER` | `ollama` or `openai-compatible` |
-| `OLLAMA_URL` / `OLLAMA_MODEL` | Local Ollama provider configuration |
-| `MEG_API_BASE_URL` / `MEG_MODEL` | Hosted OpenAI-compatible provider configuration |
-| `MEG_API_KEY` | Hosted provider secret |
-| `MEG_REQUEST_TIMEOUT_MS` | Provider request timeout |
+| `GEMINI_API_KEY` | Gemini provider secret |
+| `GROQ_API_KEY` | Groq provider secret |
+| `OPENROUTER_API_KEY` | OpenRouter provider secret |
+| `MEG_V2_DATA_DIR` | Durable Meg V2 SQLite data directory |
+| `PRIMARY_FAST_PROVIDER` / `PRIMARY_SMART_PROVIDER` | Optional route preference overrides |
+| `ENABLE_LOCAL_FALLBACK` | Optional local Ollama fallback; Bloom bridge defaults it off |
+| `RATE_LIMIT_PER_MINUTE` | Meg request rate limit |
 | `CORS_ALLOWED_ORIGINS` | Exact comma-separated production web origins |
 | `NODE_ENV` / `PORT` / `MEG_SERVER_HOST` | Node runtime and bind configuration |
 | `BUILD_VERSION` | Safe version reported by `/health` |
 
-In development, the API accepts browser origins only from `localhost` or
-`127.0.0.1` on Expo web ports 8081-8090. Production uses the exact origins in
-`CORS_ALLOWED_ORIGINS`; it does not use a wildcard.
+Optional provider model overrides are documented in `.env.example` and
+`meg-engine-v2/docs/PROVIDERS.md`.
 
 ## Project map
 
 ```text
 App.js                         Authentication gate and app providers
 src/navigation/               Five-tab navigator and stack routes
-src/screens/                  Today, Timeline, Meg, Insights, Diet, and stack screens
+src/screens/                  Today, Timeline, Meg, Diet, and stack screens
+src/features/strength/        Isolated Strength feature and pose/rep logic
+public/strength/              Strength model, browser bundle, and WASM runtime
 src/context/                  Auth and account-scoped application state
-src/services/                 Firebase, Meg, Diet, prediction, storage, and export logic
-src/utils/constants.js        Shared colours, typography, spacing, and layout tokens
-server/                       Meg API, Firebase Admin integration, and automated tests
+src/services/meg.js           Authenticated Bloom client/context adapter for Meg V2
+server/megV2Bridge.js         Bloom-to-Meg-V2 in-process bridge
+server/                       Firebase auth boundary, API routes, and tests
+meg-engine-v2/                Active Meg engine: routing, prompts, safety, memory, providers
 firestore.rules               Owner-scoped Firestore access rules
-assets/                       Approved Bloom icon, splash, favicon, and logo derivatives
-docs/                         Release, startup, branding, and distribution notes
+assets/                       Bloom icon, splash, favicon, and logo assets
+docs/                         Release, startup, and distribution notes
 ```
 
-## Design system
+## Strength boundary
 
-Bloom uses the platform system sans-serif font stack. No Playfair Display or DM
-Sans font files are loaded.
+Strength is intentionally separate from Meg. Do not remove its runtime files
+only because they are large: `PoseDetector.web.js` loads the model, JavaScript
+bundle, and WASM variants from `public/strength/`.
 
-Core source tokens in `src/utils/constants.js`:
+Before enabling Strength broadly, validate camera-permission denial,
+calibration/framing, one-person detection, rep counting, pause/recovery, Stop,
+voice fallback, and workout-summary sync in a supported browser/device.
 
-| Role | Value |
-| --- | --- |
-| Canvas | `#FFFFFF` |
-| Splash | `#FFFDFE` |
-| Soft surface | `#F7F7F5` |
-| Warm surface | `#FBF3EF` |
-| Logo rose | `#ED3F5B` |
-| Primary brand/action | `#B52F50` |
-| Brand-soft surface | `#FBE5EA` |
-| Sage/success | `#60745C` |
-| Cycle accent | `#C0755A` |
-| Primary text | `#222222` |
-| Body text | `#484848` |
-| Muted text | `#6A6A6A` |
-| Hairline | `#E5E5E2` |
+## Release validation
 
-The shared layout uses a 20 px screen gutter, a 720 px maximum content width,
-16 px cards, 12 px controls, and a 48 px minimum touch target. Existing screens
-also respect safe areas, keyboard resize, reduced-motion preferences, and a
-light interface style.
-
-## Validation
-
-Run the local checks before preparing a beta artifact:
+Run from a clean checkout:
 
 ```bash
-npx expo install --check
-npx expo-doctor
-npm run typecheck
+npm ci
 npm test
-npm run test:rules
+npm run typecheck
 npm run build:web
-npx expo export --platform android
-npx expo export --platform ios
+npm ci --prefix meg-engine-v2
+npm test --prefix meg-engine-v2
+npm run benchmark --prefix meg-engine-v2
+npm run test:rules
 ```
 
-`npm run test:rules` starts the Firestore emulator and requires a
-Firebase-supported Java runtime. `npm run test:meg` additionally requires a
-running Meg backend/provider and a short-lived `MEG_TEST_ID_TOKEN`.
-
-For an internal Android preview APK, use the repository's EAS profile after the
-preview environment has been verified:
+Then validate the production container:
 
 ```bash
-npx eas-cli@latest build --platform android --profile preview --clear-cache
+docker build -t wholebloom .
+docker run --rm -p 8080:8080 \
+  -e GEMINI_API_KEY="$GEMINI_API_KEY" \
+  -v bloom-meg-v2:/var/lib/bloom/meg-v2 \
+  wholebloom
 ```
+
+Check `/health`, send one Firebase-authenticated Meg request, restart the
+container with the same volume, and confirm the expected V2 persistence is still
+available. Also smoke-test Strength in a real supported browser.
+
+Merge a Meg backend migration only after the GitHub verification workflow is
+green, including Bloom tests, Meg V2 tests, typecheck, web build, and production
+container build.
 
 ## Firebase and deployment
 
 1. Enable Email/Password Authentication in the existing Firebase project.
 2. Configure the six public Firebase values and `EXPO_PUBLIC_MEG_API_URL` in the
    matching local or EAS environment.
-3. Review rules and tests before explicitly deploying them:
-
-   ```bash
-   npx firebase deploy --only firestore:rules --project bloom-5da0f
-   ```
-
-4. Build web with `npm run build:web` and publish `dist/` on the chosen frontend
-   host.
-5. Deploy the backend to a Node 20 service with `npm run server`, Firebase Admin
-   configured through workload identity/ADC or a server-side secret, and exact
-   production origins in `CORS_ALLOWED_ORIGINS`.
-6. Confirm `GET /health` returns 200, set the public HTTPS Meg API URL, and then
-   rebuild the frontend or native app so the build-time value is embedded.
+3. Configure Firebase Admin credentials only on the backend.
+4. Configure at least one Meg V2 provider key.
+5. Mount durable storage at `MEG_V2_DATA_DIR` for production Meg memory.
+6. Review Firestore rules and tests before deploying them.
+7. Confirm `GET /health` returns 200 and identifies Meg V2 before shipping an app
+   build that points to the backend.
 
 ## Privacy and safety
 
-- Firestore paths for cycle, check-in, Diet, and Meg data are scoped to the
-  authenticated account.
-- The Meg API verifies Firebase ID tokens and does not log tokens, message
-  contents, or secrets.
+- Firestore paths for cycle, check-in, Diet, and allowed Strength summaries are
+  scoped to the authenticated account.
+- The Meg API verifies Firebase ID tokens and derives the trusted UID server-side.
+- Provider keys never enter the Expo bundle.
+- Meg V2 context is mapped through an allowlist before prompt construction.
 - Native and device-only preferences use UID-scoped storage.
-- Optional app-lock and hidden-preview controls protect casual device access;
-  they are not substitutes for device security.
 - Cycle and symptom observations are informational only. Seek medical care for
   urgent symptoms or concerns.
 
