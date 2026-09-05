@@ -18,6 +18,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
       - name: Remove dev-only and obsolete files
         shell: bash
         run: |
@@ -96,10 +103,10 @@ jobs:
           sed -i 's/^          //' README.md
 
       - name: Install Bloom dependencies
-        run: npm ci
+        run: npm ci --no-audit --no-fund
 
-      - name: Install Meg V2 dependencies
-        run: npm ci --prefix meg-engine-v2
+      - name: Install Meg V2 dependencies and lock them
+        run: npm install --prefix meg-engine-v2 --no-audit --no-fund
 
       - name: Run Bloom tests
         run: npm test
