@@ -177,3 +177,56 @@ test('typed memory retrieval filters expired memories and ranks relevant confirm
   assert.equal(receivedMemories[0].id, '1');
   assert.equal(receivedMemories[0].confirmation, 'confirmed');
 });
+
+test('V3 prompt preserves evidence provenance and response plan constraints', () => {
+  const { buildV3Prompt } = require('../src/prompts/composer');
+  const prompt = buildV3Prompt({
+    request: { message: 'What do you notice?', language: 'en' },
+    evidence: [
+      { kind: 'bloom_log', domain: 'sleep', text: 'Recent sleep log: 5 hours', confidence: 1 },
+      { kind: 'derived_observation', domain: 'pattern', text: 'Bloom-derived observation: lower sleep often appears before difficult days. This is an observation, not a diagnosis.', confidence: 0.6 },
+    ],
+    memories: [
+      { text: 'User prefers concise responses.', confirmation: 'confirmed', relevance: 0.9 },
+    ],
+    understanding: { intent: 'complex_health', route: 'SMART', safety: { triggered: false } },
+    plan: { objective: 'explain_with_context', tone: ['warm', 'clear'], maxQuestions: 1, mustInclude: ['separate facts from possibilities'], mustAvoid: ['false certainty'], streamingPolicy: 'buffer_then_validate' },
+  });
+
+  assert.equal(prompt.length, 2);
+  assert.match(prompt[0].content, /Treat Bloom logs as tracked observations/);
+  assert.match(prompt[0].content, /derived_observation/);
+  assert.match(prompt[0].content, /confirmed/);
+  assert.match(prompt[0].content, /separate facts from possibilities/);
+  assert.equal(prompt[1].content, 'What do you notice?');
+});
+
+test('provider generator uses V3 route, selected providers and composed prompt', async () => {
+  const { createProviderGenerator } = require('../src/providers/providerGenerator');
+  let request = null;
+  const fakeManager = {
+    async *stream(input, state) {
+      request = input;
+      state.provider = 'fake-smart';
+      state.retries = 1;
+      yield 'Hello ';
+      yield 'from Meg.';
+    },
+  };
+  const generator = createProviderGenerator({ providerManager: fakeManager });
+  const result = await generator({
+    request: { message: 'Explain this', language: 'en' },
+    evidence: [],
+    memories: [],
+    history: [],
+    understanding: { intent: 'complex_health', route: 'SMART', preferredProviders: ['openrouter', 'gemini'], safety: { triggered: false } },
+    plan: { objective: 'explain_with_context', tone: ['clear'], maxQuestions: 1, mustInclude: [], mustAvoid: [] },
+  });
+
+  assert.equal(result.text, 'Hello from Meg.');
+  assert.equal(result.provider, 'fake-smart');
+  assert.equal(result.meta.retries, 1);
+  assert.equal(request.route, 'SMART');
+  assert.deepEqual(request.providerNames, ['openrouter', 'gemini']);
+  assert.match(request.messages[0].content, /Grounding rules/);
+});
