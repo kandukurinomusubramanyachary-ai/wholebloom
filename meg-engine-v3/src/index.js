@@ -52,6 +52,7 @@ function createMegV3Engine({
           confidence: completed.understanding.confidence,
           route: completed.understanding.route,
           provider: completed.response.provider,
+          providerMeta: completed.response.providerMeta,
           planObjective: completed.plan?.objective || null,
           totalMs: completed.trace.totalMs,
           stages: completed.trace.stages,
