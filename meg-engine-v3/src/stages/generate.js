@@ -28,6 +28,8 @@ function createGenerateStage({ generator } = {}) {
     const generated = normalizeGenerated(await activeGenerator({
       request: state.request,
       context: state.context,
+      evidence: state.evidence,
+      memories: state.memories,
       history: state.history,
       understanding: state.understanding,
       plan: state.plan,
