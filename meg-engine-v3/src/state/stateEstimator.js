@@ -141,15 +141,14 @@ function inferBehaviorState(message, context) {
   return { foodRelevant, activityRelevant, signals: unique(signals) };
 }
 
-function deriveRisk({ message, physical, emotional }) {
+function deriveRisk({ message, physical }) {
   const flags = [...physical.flags];
   if (CRISIS_CUE.test(message)) flags.push('crisis_language_detected');
-  if (emotional.score >= 0.85) flags.push('high_emotional_distress');
 
   let level = 'low';
   if (flags.includes('crisis_language_detected')) level = 'urgent';
   else if (flags.includes('potential_red_flag_symptom')) level = 'high';
-  else if (flags.includes('severe_pain_reported') || emotional.score >= 0.85) level = 'elevated';
+  else if (flags.includes('severe_pain_reported')) level = 'elevated';
 
   return { level, flags: unique(flags) };
 }
@@ -177,7 +176,7 @@ function estimateState({ message = '', context = {}, recentMessages = [], memori
   const physical = symptomSeverity(safeContext.symptoms);
   const cycle = inferCycleState(text, safeContext);
   const behavior = inferBehaviorState(text, safeContext);
-  const risk = deriveRisk({ message: text, physical, emotional });
+  const risk = deriveRisk({ message: text, physical });
   const needs = deriveNeeds({ message: text, emotional, recovery, physical, cycle, behavior, risk });
 
   const evidence = unique([
