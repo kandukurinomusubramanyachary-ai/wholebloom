@@ -12,13 +12,19 @@ validated turn state
 understand
   safety + intent + complexity + route
       ↓
+context evidence
+  user statements + Bloom logs + derived observations
+      ↓
+memory retrieval
+  typed + scored + expiry-aware memories
+      ↓
 plan response
   objective + tone + must-include + must-avoid + streaming policy
       ↓
 extension stages
-  context / memory / tools / knowledge
       ↓
 generate
+  V3 grounded prompt + ProviderManager-compatible generator
       ↓
 extension stages
   factuality / quality / specialized validators
@@ -35,24 +41,27 @@ public Meg response
 - compatibility wrapper around V2 deterministic safety, intent, and model routing
 - explicit response planner for Listen, Understand, Plan, Conversation, and Doctor modes
 - deterministic urgent-safety bypass that does not call a model
-- generator interface independent of provider implementation
+- typed Bloom context evidence that distinguishes logs, user statements, and derived observations
+- derived observations carry lower confidence and an explicit non-diagnostic boundary
+- typed memory retrieval with source, confidence, confirmation state, expiry, relevance scoring, and current-turn precedence
+- evidence-grounded V3 prompt composer driven by the response plan
+- ProviderManager-compatible generator adapter so V3 can reuse V2 retry/fallback/circuit reliability
 - fail-closed output guard using the proven V2 guard during migration
+- provider generation metadata and per-stage timing/error telemetry in the turn result
 - extension points before and after generation
-- initial regression tests
+- regression tests for the core pipeline, safety bypass, evidence, memory, prompt grounding, and provider adapter
 
 ## Why keep V2 pieces temporarily?
 
 V2 already has useful, tested reliability and safety components. V3 wraps those pieces behind stage boundaries first, then replaces them one at a time with stronger implementations. This avoids a risky big-bang rewrite and gives every replacement a V2 baseline.
 
-## Near-term V3 build order
+## Next V3 build order
 
-1. Structured context evidence model: distinguish user-stated facts, Bloom logs, derived observations, and memories.
-2. Memory V3: typed memory with source, confidence, confirmation state, expiry, correction, and retrieval scoring.
-3. Provider adapter that reuses V2 ProviderManager reliability while V3 owns routing policy.
-4. Prompt composer driven by the response plan instead of a monolithic static prompt.
-5. Input and output safety V3 with negation/context tests and safety-sensitive buffered generation.
-6. Evaluation harness comparing V2 vs V3 on identical cases.
-7. Version-neutral Bloom server bridge and guarded rollout flag.
+1. Safety V3: context/negation-aware input risk evaluation plus stronger output validation, while retaining deterministic emergency gates.
+2. Evaluation harness: run V2 and V3 against identical deterministic and live-provider cases, including quality, safety, grounding, latency, and mode adherence.
+3. Memory write/correction lifecycle: persist only appropriate durable memories, support correction/supersession, and keep episodic Bloom logs separate from long-term memory.
+4. Version-neutral Bloom server bridge with a guarded V2/V3 rollout flag and no client API break.
+5. Shadow-mode integration before any production cutover.
 
 ## Run tests
 
