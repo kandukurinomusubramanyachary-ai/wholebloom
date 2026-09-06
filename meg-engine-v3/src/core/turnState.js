@@ -45,6 +45,8 @@ function createTurnState(input = {}) {
       route: null,
       reasons: [],
     },
+    evidence: [],
+    memories: [],
     plan: null,
     response: {
       text: '',
