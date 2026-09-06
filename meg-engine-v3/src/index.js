@@ -2,6 +2,8 @@ const { createTurnState } = require('./core/turnState');
 const { TurnPipeline } = require('./core/TurnPipeline');
 const { createUnderstandStage } = require('./stages/understand');
 const { createResponsePlannerStage } = require('./strategy/responsePlanner');
+const { createContextEvidenceStage } = require('./stages/contextEvidence');
+const { createMemoryRetrievalStage } = require('./memory/retriever');
 const { createGenerateStage } = require('./stages/generate');
 const { createGuardStage } = require('./stages/guard');
 const { isUrgentCategory } = require('../../meg-engine-v2/src/safety/safetyRouter');
@@ -11,6 +13,8 @@ const ENGINE_VERSION = '0.3.0-alpha.1';
 function createMegV3Engine({
   generator,
   providerOrders,
+  memoryStore,
+  memoryLimit = 6,
   maxResponseChars = 7000,
   beforeGenerate = [],
   afterGenerate = [],
@@ -18,6 +22,8 @@ function createMegV3Engine({
 } = {}) {
   const pipeline = new TurnPipeline([
     createUnderstandStage({ providerOrders }),
+    createContextEvidenceStage(),
+    createMemoryRetrievalStage({ memoryStore, limit: memoryLimit }),
     createResponsePlannerStage(),
     ...beforeGenerate,
     createGenerateStage({ generator }),
