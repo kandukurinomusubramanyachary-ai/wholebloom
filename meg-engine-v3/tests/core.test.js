@@ -118,3 +118,62 @@ test('required stage failures identify the failed boundary', async () => {
     return true;
   });
 });
+
+test('Bloom context is converted into typed evidence before generation', async () => {
+  let receivedEvidence = null;
+  const engine = createMegV3Engine({
+    generator: async ({ evidence }) => {
+      receivedEvidence = evidence;
+      return { text: 'I can use the context carefully.', provider: 'test-provider' };
+    },
+  });
+
+  await engine.turn({
+    ...baseInput,
+    message: 'Help me understand today',
+    supportMode: 'understand',
+    context: {
+      cycleDay: 42,
+      todayCheckin: { mood: 'overwhelmed', sleep: 5, pain: 6 },
+      goals: ['feel more energetic'],
+      derivedPattern: { label: 'sleep is often lower before difficult days', occurrences: 3, total: 5 },
+    },
+  });
+
+  assert.ok(receivedEvidence.some((item) => item.kind === 'bloom_log' && item.key === 'cycle_day'));
+  assert.ok(receivedEvidence.some((item) => item.kind === 'user_statement' && item.domain === 'goal'));
+  const derived = receivedEvidence.find((item) => item.kind === 'derived_observation');
+  assert.ok(derived);
+  assert.ok(derived.confidence < 1);
+  assert.match(derived.text, /not a diagnosis/i);
+});
+
+test('typed memory retrieval filters expired memories and ranks relevant confirmed memory', async () => {
+  let receivedMemories = null;
+  const memoryStore = {
+    listMemories() {
+      return [
+        { id: '1', text: 'User prefers concise responses.', tags: ['communication', 'emotional'], confirmation: 'confirmed', confidence: 0.95, createdAt: new Date().toISOString() },
+        { id: '2', text: 'User likes very long explanations.', tags: ['communication'], confirmation: 'inferred', confidence: 0.2, expiresAt: '2020-01-01T00:00:00.000Z' },
+        { id: '3', text: 'User prefers vegetarian meal ideas.', tags: ['diet'], confirmation: 'stated', confidence: 0.9, createdAt: new Date().toISOString() },
+      ];
+    },
+  };
+  const engine = createMegV3Engine({
+    memoryStore,
+    generator: async ({ memories }) => {
+      receivedMemories = memories;
+      return { text: 'I hear you.', provider: 'test-provider' };
+    },
+  });
+
+  await engine.turn({
+    ...baseInput,
+    message: 'I feel overwhelmed, please keep this concise',
+    supportMode: 'listen',
+  });
+
+  assert.equal(receivedMemories.some((memory) => memory.id === '2'), false);
+  assert.equal(receivedMemories[0].id, '1');
+  assert.equal(receivedMemories[0].confirmation, 'confirmed');
+});
