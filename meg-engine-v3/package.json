@@ -1,0 +1,14 @@
+{
+  "name": "meg-engine-v3",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Adaptive intervention decision layer for Bloom Meg.",
+  "main": "src/engine.js",
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check src/engine.js && node --check src/state/stateEstimator.js && node --check src/interventions/interventionPolicy.js && node --check src/adaptation/outcomeModel.js && node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
