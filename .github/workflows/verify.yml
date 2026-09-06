@@ -47,6 +47,9 @@ jobs:
       - name: Run Meg V3 adaptive-engine tests
         run: npm test --prefix meg-engine-v3
 
+      - name: Run Meg V3 intervention benchmark
+        run: npm run benchmark --prefix meg-engine-v3
+
       - name: Run Meg V2 deterministic benchmark
         run: npm run benchmark --prefix meg-engine-v2
 
