@@ -4,6 +4,9 @@ const { createApp: createMegEngineApp } = require('../meg-engine-v2/src/app');
 const { loadConfig } = require('../meg-engine-v2/src/config/env');
 const { createBufferedChatRunner, ChatRequestError } = require('../meg-engine-v2/src/http/chatHandler');
 const { cleanSupportMode } = require('../meg-engine-v2/src/prompts/support-mode');
+const { detectSafety } = require('../meg-engine-v2/src/safety/safetyRouter');
+const { classifyIntentDetailed } = require('../meg-engine-v2/src/router/intentRouter');
+const { evaluateTurn: evaluateMegV3Turn } = require('../meg-engine-v3/src/engine');
 
 function shortString(value, max = 120) {
   if (typeof value !== 'string') return null;
@@ -102,6 +105,45 @@ function buildMegV2Environment(environment = process.env) {
   };
 }
 
+function isMegV3ShadowEnabled(environment = process.env) {
+  return String(environment.MEG_V3_SHADOW_ENABLED ?? 'true').trim().toLowerCase() !== 'false';
+}
+
+function evaluateMegV3Shadow({ message = '', context = {}, history = [] } = {}) {
+  try {
+    const safety = detectSafety(String(message || ''));
+    const intent = classifyIntentDetailed({ message: String(message || ''), safety }).intent;
+    const decision = evaluateMegV3Turn({
+      message: String(message || ''),
+      context: context && typeof context === 'object' && !Array.isArray(context) ? context : {},
+      intent,
+      recentMessages: Array.isArray(history) ? history.slice(-8) : [],
+      memories: [],
+      outcomeEvents: [],
+    });
+    return { intent, decision };
+  } catch {
+    return null;
+  }
+}
+
+function megV3ShadowTelemetry(shadow, traceId = null) {
+  if (!shadow?.decision) return null;
+  const state = shadow.decision.state || {};
+  const selected = shadow.decision.intervention?.selected || {};
+  return {
+    event: 'meg_v3_shadow_decision',
+    traceId: traceId || null,
+    v2Intent: shadow.intent || null,
+    stateVersion: state.version || null,
+    interventionFamily: selected.family || null,
+    interventionId: selected.id || null,
+    riskLevel: state.risk?.level || null,
+    stateConfidence: Number.isFinite(Number(state.confidence)) ? Number(state.confidence) : null,
+    needs: Array.isArray(state.needs) ? state.needs.slice(0, 8) : [],
+  };
+}
+
 function createMegV2Bridge({ environment = process.env, engineOverrides = {} } = {}) {
   const config = engineOverrides.config || loadConfig(buildMegV2Environment(environment));
   const engineApp = createMegEngineApp({ ...engineOverrides, config });
@@ -114,6 +156,7 @@ function createMegV2Bridge({ environment = process.env, engineOverrides = {} } =
     coordinator: runtime.coordinator,
     logger: runtime.logger,
   });
+  const shadowEnabled = isMegV3ShadowEnabled(environment);
 
   return {
     config,
@@ -123,6 +166,11 @@ function createMegV2Bridge({ environment = process.env, engineOverrides = {} } =
         throw new ChatRequestError('unauthorized', { status: 401 });
       }
       const supportMode = cleanSupportMode(body.supportMode ?? body.mode);
+      const mappedContext = mapBloomContext(body.context);
+      const history = Array.isArray(body.history) ? body.history : [];
+      const v3Shadow = shadowEnabled
+        ? evaluateMegV3Shadow({ message: body.message, context: mappedContext, history })
+        : null;
       const result = await runChat({
         userId: uid.trim(),
         conversationId: body.conversationId,
@@ -131,9 +179,14 @@ function createMegV2Bridge({ environment = process.env, engineOverrides = {} } =
         mode: routeModeForSupportMode(supportMode),
         supportMode,
         language: body.language || 'en',
-        context: mapBloomContext(body.context),
-        history: Array.isArray(body.history) ? body.history : [],
+        context: mappedContext,
+        history,
       }, { signal });
+
+      const shadowTelemetry = megV3ShadowTelemetry(v3Shadow, result.metadata?.traceId || null);
+      if (shadowTelemetry) {
+        try { runtime.logger?.info?.(shadowTelemetry); } catch {}
+      }
 
       return {
         message: result.text,
@@ -164,4 +217,7 @@ module.exports = {
   resolveMegV2DataDir,
   mapBloomContext,
   routeModeForSupportMode,
+  isMegV3ShadowEnabled,
+  evaluateMegV3Shadow,
+  megV3ShadowTelemetry,
 };
