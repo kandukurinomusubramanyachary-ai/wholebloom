@@ -51,6 +51,7 @@ function createTurnState(input = {}) {
     response: {
       text: '',
       provider: null,
+      providerMeta: null,
       guarded: false,
     },
     trace: {
