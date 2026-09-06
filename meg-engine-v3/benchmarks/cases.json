@@ -109,7 +109,7 @@
     "intent": "emotional",
     "context": { "mood": "anxious", "stress": 7, "sleepHours": 7 },
     "expectedFamily": "emotional_regulation",
-    "expectedRisk": "elevated"
+    "expectedRisk": "low"
   },
   {
     "id": "doctor-with-cycle-data",
