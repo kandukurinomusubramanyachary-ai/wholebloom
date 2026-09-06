@@ -1,0 +1,122 @@
+[
+  {
+    "id": "vent-listen",
+    "message": "I am overwhelmed. I don't want advice, I just need to vent.",
+    "intent": "emotional",
+    "context": { "mood": "sad", "stress": 8, "sleepHours": 6 },
+    "expectedFamily": "active_listening",
+    "expectedRisk": "low"
+  },
+  {
+    "id": "crisis-override",
+    "message": "I don't want to live anymore and I might hurt myself.",
+    "intent": "emotional",
+    "context": {},
+    "expectedFamily": "safety_escalation",
+    "expectedRisk": "urgent"
+  },
+  {
+    "id": "severe-pain-no-workout",
+    "message": "Should I do my workout today?",
+    "intent": "activity_question",
+    "context": { "symptoms": ["pain 9/10"], "sleepHours": 7, "activity": "no movement logged today" },
+    "expectedFamily": "symptom_triage",
+    "expectedRisk": "elevated"
+  },
+  {
+    "id": "red-flag-fainting",
+    "message": "I have been feeling strange today.",
+    "intent": "symptom_question",
+    "context": { "symptoms": ["fainting", "very heavy bleeding"] },
+    "expectedFamily": "symptom_triage",
+    "expectedRisk": "high"
+  },
+  {
+    "id": "very-low-sleep",
+    "message": "I feel tired and stressed today.",
+    "intent": "emotional",
+    "context": { "stress": 5, "sleepHours": 3 },
+    "expectedFamily": "recovery_support",
+    "expectedRisk": "low"
+  },
+  {
+    "id": "late-irregular-cycle",
+    "message": "My period is late again and my cycle is irregular. What could this mean?",
+    "intent": "cycle_question",
+    "context": { "cycleDay": 44, "cycleVariability": 18, "symptoms": ["bloating"] },
+    "expectedFamily": "cycle_understanding",
+    "expectedRisk": "low"
+  },
+  {
+    "id": "cycle-question-low-context",
+    "message": "Why does my period keep coming late?",
+    "intent": "cycle_question",
+    "context": { "cycleDay": 38 },
+    "expectedFamily": "cycle_understanding",
+    "expectedRisk": "low"
+  },
+  {
+    "id": "cravings-support",
+    "message": "I keep craving sweets at night. What should I eat instead?",
+    "intent": "diet_question",
+    "context": { "stress": 5, "sleepHours": 7 },
+    "expectedFamily": "nutrition_support",
+    "expectedRisk": "low"
+  },
+  {
+    "id": "gentle-movement",
+    "message": "Can I do a short walk today?",
+    "intent": "activity_question",
+    "context": { "sleepHours": 7.5, "symptoms": [] },
+    "expectedFamily": "movement_support",
+    "expectedRisk": "low"
+  },
+  {
+    "id": "doctor-prep",
+    "message": "I have a gynecologist appointment tomorrow. What should I ask?",
+    "intent": "doctor_prep",
+    "context": { "cycleDay": 41, "symptoms": ["acne", "fatigue"], "goals": ["understand irregular cycles"] },
+    "expectedFamily": "doctor_prep",
+    "expectedRisk": "low"
+  },
+  {
+    "id": "casual-conversation",
+    "message": "Hey Meg, good morning",
+    "intent": "casual",
+    "context": {},
+    "expectedFamily": "conversation",
+    "expectedRisk": "low"
+  },
+  {
+    "id": "moderate-pain-clarify",
+    "message": "These cramps are bothering me today.",
+    "intent": "symptom_question",
+    "context": { "symptoms": ["pain 7/10", "cramps"] },
+    "expectedFamily": "symptom_triage",
+    "expectedRisk": "low"
+  },
+  {
+    "id": "rest-after-poor-sleep",
+    "message": "What should I do today? I barely slept.",
+    "intent": "casual",
+    "context": { "sleepHours": 4.5, "stress": 3 },
+    "expectedFamily": "recovery_support",
+    "expectedRisk": "low"
+  },
+  {
+    "id": "emotional-support",
+    "message": "I feel anxious and overwhelmed about my body today.",
+    "intent": "emotional",
+    "context": { "mood": "anxious", "stress": 7, "sleepHours": 7 },
+    "expectedFamily": "emotional_regulation",
+    "expectedRisk": "elevated"
+  },
+  {
+    "id": "doctor-with-cycle-data",
+    "message": "Can you help me prepare my cycle history for my doctor?",
+    "intent": "doctor_prep",
+    "context": { "cycleDay": 50, "cycleVariability": 20, "symptoms": ["fatigue"], "goals": ["show my cycle pattern clearly"] },
+    "expectedFamily": "doctor_prep",
+    "expectedRisk": "low"
+  }
+]
