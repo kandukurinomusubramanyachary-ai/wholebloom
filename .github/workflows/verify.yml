@@ -38,6 +38,15 @@ jobs:
       - name: Install Meg V2 dependencies
         run: npm ci --prefix meg-engine-v2 --no-audit --no-fund
 
+      - name: Run Meg V3 adaptive-engine tests
+        run: npm test --prefix meg-engine-v3
+
+      - name: Run Meg V3 intervention benchmark
+        run: npm run benchmark --prefix meg-engine-v3
+
+      - name: Run Meg V3 Bloom shadow-adapter tests
+        run: node --test server/megV3Shadow.test.js
+
       - name: Run Bloom integration tests
         run: npm test
 
