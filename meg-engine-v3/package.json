@@ -1,0 +1,15 @@
+{
+  "name": "meg-engine-v3",
+  "version": "0.1.0-alpha.1",
+  "private": true,
+  "description": "Meg V3 staged conversational engine for Bloom.",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node --test",
+    "test:watch": "node --test --watch",
+    "check": "node --check src/index.js && node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
