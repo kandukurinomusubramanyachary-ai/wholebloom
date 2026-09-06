@@ -44,6 +44,9 @@ jobs:
       - name: Run Meg V2 engine tests
         run: timeout 120s npm test --prefix meg-engine-v2 -- --test-reporter=spec
 
+      - name: Run Meg V3 adaptive-engine tests
+        run: npm test --prefix meg-engine-v3
+
       - name: Run Meg V2 deterministic benchmark
         run: npm run benchmark --prefix meg-engine-v2
 
