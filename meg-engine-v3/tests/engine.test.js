@@ -15,6 +15,19 @@ test('explicit venting selects listening before advice', () => {
   assert.equal(result.intervention.selected.family, 'active_listening');
   assert.ok(result.state.needs.includes('listen'));
   assert.ok(result.state.emotional.score >= 0.5);
+  assert.equal(result.state.risk.level, 'low');
+});
+
+test('high emotional load is not automatically classified as safety risk', () => {
+  const result = evaluateTurn({
+    message: 'I feel anxious and overwhelmed about my body today',
+    context: { mood: 'anxious', stress: 9, sleepHours: 7 },
+    intent: 'emotional',
+    now: fixedNow,
+  });
+  assert.ok(result.state.emotional.score >= 0.85);
+  assert.equal(result.state.risk.level, 'low');
+  assert.equal(result.intervention.selected.family, 'emotional_regulation');
 });
 
 test('low sleep can drive recovery-first support', () => {
