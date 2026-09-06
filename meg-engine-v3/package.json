@@ -6,7 +6,8 @@
   "main": "src/engine.js",
   "scripts": {
     "test": "node --test",
-    "check": "node --check src/engine.js && node --check src/state/stateEstimator.js && node --check src/interventions/interventionPolicy.js && node --check src/adaptation/outcomeModel.js && node --test"
+    "benchmark": "node benchmarks/runner.js",
+    "check": "node --check src/engine.js && node --check src/state/stateEstimator.js && node --check src/interventions/interventionPolicy.js && node --check src/adaptation/outcomeModel.js && node --test && node benchmarks/runner.js"
   },
   "engines": {
     "node": ">=20"
