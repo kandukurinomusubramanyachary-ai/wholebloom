@@ -44,6 +44,9 @@ jobs:
       - name: Run Meg V3 intervention benchmark
         run: npm run benchmark --prefix meg-engine-v3
 
+      - name: Run Meg V3 Bloom shadow-adapter tests
+        run: node --test server/megV3Shadow.test.js
+
       - name: Run Bloom integration tests
         run: npm test
 
