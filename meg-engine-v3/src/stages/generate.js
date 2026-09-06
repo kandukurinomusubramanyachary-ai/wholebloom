@@ -2,11 +2,11 @@ const { safetyFallback, isUrgentCategory } = require('../../../meg-engine-v2/src
 const { defineStage } = require('../core/TurnPipeline');
 
 function normalizeGenerated(result) {
-  if (typeof result === 'string') return { text: result, provider: null };
+  if (typeof result === 'string') return { text: result, provider: null, meta: null };
   if (result && typeof result.text === 'string') {
-    return { text: result.text, provider: result.provider || null };
+    return { text: result.text, provider: result.provider || null, meta: result.meta || null };
   }
-  return { text: '', provider: null };
+  return { text: '', provider: null, meta: null };
 }
 
 function createGenerateStage({ generator } = {}) {
@@ -43,6 +43,7 @@ function createGenerateStage({ generator } = {}) {
 
     state.response.text = generated.text.trim();
     state.response.provider = generated.provider;
+    state.response.providerMeta = generated.meta;
     return state;
   });
 }
