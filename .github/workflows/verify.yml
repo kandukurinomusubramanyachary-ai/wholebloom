@@ -38,17 +38,17 @@ jobs:
       - name: Install Meg V2 dependencies
         run: npm ci --prefix meg-engine-v2 --no-audit --no-fund
 
-      - name: Run Bloom integration tests
-        run: npm test
-
-      - name: Run Meg V2 engine tests
-        run: timeout 120s npm test --prefix meg-engine-v2 -- --test-reporter=spec
-
       - name: Run Meg V3 adaptive-engine tests
         run: npm test --prefix meg-engine-v3
 
       - name: Run Meg V3 intervention benchmark
         run: npm run benchmark --prefix meg-engine-v3
+
+      - name: Run Bloom integration tests
+        run: npm test
+
+      - name: Run Meg V2 engine tests
+        run: timeout 120s npm test --prefix meg-engine-v2 -- --test-reporter=spec
 
       - name: Run Meg V2 deterministic benchmark
         run: npm run benchmark --prefix meg-engine-v2
